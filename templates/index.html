@@ -30,12 +30,12 @@
         .fullscreen-bg {
             min-height: 100vh;
             min-width: 100vw;
-            height: 100vh;
             width: 100vw;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
             background: var(--dark-bg) !important;
+            padding-top: 2rem;
         }
 
         .card {
@@ -122,6 +122,12 @@
             color: var(--text-color);
         }
 
+        .alert-keygen {
+            background-color: var(--pumpkin-orange);
+            border-color: var(--pumpkin-orange);
+            color: #fff;
+        }
+
         .copy-btn {
             cursor: pointer;
             color: var(--soft-pumpkin);
@@ -194,9 +200,8 @@
         /* --- Dashboard Layout Additions --- */
         .app-container {
             max-width: 960px;
-            max-height: 90vh;
             width: 90vw;
-            height: 90vh;
+            min-height: 90vh;
             display: flex;
             flex-direction: row;
             overflow: hidden;
@@ -207,7 +212,7 @@
             flex: 0 0 20%;
             max-width: 20%;
             min-width: 140px;
-            height: 100%;
+            min-height: 100%;
             background-color: var(--darker-bg);
             border-right: 1px solid var(--border-color);
             display: flex;
@@ -250,6 +255,12 @@
         #sideTabs {
             flex-direction: column !important;
             flex: 1 1 auto;
+        }
+
+        /* Pumpkin colored toast */
+        .bg-pumpkin {
+            background-color: var(--pumpkin-orange) !important;
+            color: #fff !important;
         }
     </style>
 </head>
@@ -339,7 +350,12 @@
                         <div id="resultArea" class="mt-4">
                             <h4>Results</h4>
                             <div id="messages" class="alert alert-info"></div>
-                            
+
+                            <div class="mb-3">
+                                <label class="form-label">Generated Files</label>
+                                <ul class="list-group" id="fileList"></ul>
+                            </div>
+
                             <div class="mb-3">
                                 <label class="form-label">Snowflake Command</label>
                                 <div class="input-group">
@@ -348,11 +364,6 @@
                                         <i class="bi bi-clipboard"></i>
                                     </button>
                                 </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Generated Files</label>
-                                <ul class="list-group" id="fileList"></ul>
                             </div>
                         </div>
                     </div>
@@ -522,7 +533,11 @@
                     if (response.ok) {
                         // Display results
                         resultArea.style.display = 'block';
-                        messagesDiv.innerHTML = data.messages.join('<br>');
+                        let msgHTML = data.messages.join('<br>');
+                        if (formData.encrypted && formData.passphrase) {
+                            msgHTML += `<br><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><strong>Passphrase:</strong> ${formData.passphrase} <span class="text-muted">(store safely)</span>`;
+                        }
+                        messagesDiv.innerHTML = msgHTML;
                         snowflakeCommand.value = data.snowflake_command || '';
                         
                         // Display file list with download links
@@ -564,8 +579,8 @@
             function showToast(message, type) {
                 const toastEl = document.querySelector('.toast');
                 toastEl.querySelector('.toast-body').textContent = message;
-                toastEl.classList.remove('bg-success', 'bg-danger');
-                toastEl.classList.add(type === 'success' ? 'bg-success' : 'bg-danger');
+                toastEl.classList.remove('bg-success', 'bg-danger', 'bg-pumpkin');
+                toastEl.classList.add(type === 'success' ? 'bg-pumpkin' : 'bg-danger');
                 toast.show();
             }
 
