@@ -190,83 +190,172 @@
             background-color: var(--darker-bg) !important;
             color: var(--text-color) !important;
         }
+
+        /* --- Dashboard Layout Additions --- */
+        .app-container {
+            max-width: 960px;
+            max-height: 90vh;
+            width: 90vw;
+            height: 90vh;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+            border-radius: 0.75rem;
+        }
+
+        .sidebar {
+            flex: 0 0 20%;
+            max-width: 20%;
+            min-width: 140px;
+            height: 100%;
+            background-color: var(--darker-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar .nav-link {
+            color: var(--text-color);
+            border-radius: 0.375rem;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .sidebar .nav-link.active,
+        .sidebar .nav-link:hover {
+            background-color: var(--pumpkin-orange);
+            color: #fff;
+        }
+
+        .content {
+            flex: 1 1 80%;
+            overflow-y: auto;
+            background-color: var(--card-bg);
+        }
+
+        /* Ensure sideTabs list takes full height within sidebar */
+        #sideTabs {
+            flex-direction: column !important;
+            flex: 1 1 auto;
+        }
     </style>
 </head>
 <body class="bg-light">
     <div class="fullscreen-bg">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h3 class="mb-0">Snowflake Key Pair Generator</h3>
-            </div>
-            <div class="card-body">
-                <form id="keyPairForm">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Snowflake Username</label>
-                        <input type="text" class="form-control" id="username" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="encrypted" checked>
-                            <label class="form-check-label" for="encrypted">
-                                Encrypt Private Key
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3" id="passphraseGroup">
-                        <label for="passphrase" class="form-label">Passphrase</label>
-                        <div class="input-group">
-                            <input type="password" class="form-control" id="passphrase" required>
-                            <button class="btn btn-outline-secondary" type="button" id="togglePassphrase">
-                                <i class="bi bi-eye"></i>
+        <div class="card shadow app-container">
+            <nav class="sidebar p-3">
+                <h5 class="text-white mb-4">Menu</h5>
+                <ul class="nav nav-pills flex-column mb-auto" id="sideTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="generate-tab" data-bs-toggle="tab" href="#generate" role="tab">
+                            <i class="bi bi-key me-2"></i>Generate Key Pair
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="process-tab" data-bs-toggle="tab" href="#process" role="tab">
+                            <i class="bi bi-box-arrow-down me-2"></i>Process Keys
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="user-tab" data-bs-toggle="tab" href="#users" role="tab">
+                            <i class="bi bi-people me-2"></i>User Management
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="keymgmt-tab" data-bs-toggle="tab" href="#keys" role="tab">
+                            <i class="bi bi-key-fill me-2"></i>Key Management
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <div class="content p-4">
+                <div class="tab-content" id="tabContent">
+                    <div class="tab-pane fade show active" id="generate" role="tabpanel" aria-labelledby="generate-tab">
+                        <h3 class="mb-4">Snowflake Key Pair Generator</h3>
+                        <form id="keyPairForm">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Snowflake Username</label>
+                                <input type="text" class="form-control" id="username" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="encrypted" checked>
+                                    <label class="form-check-label" for="encrypted">
+                                        Encrypt Private Key
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3" id="passphraseGroup">
+                                <label for="passphrase" class="form-label">Passphrase</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="passphrase" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="togglePassphrase">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="invalid-feedback" id="passphraseError"></div>
+                            </div>
+                            
+                            <div class="mb-3" id="confirmPassphraseGroup">
+                                <label for="confirmPassphrase" class="form-label">Confirm Passphrase</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="confirmPassphrase" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassphrase">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="invalid-feedback" id="confirmPassphraseError"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="createProcessed" checked>
+                                    <label class="form-check-label" for="createProcessed">
+                                        Create Processed Key File
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-key"></i> Generate Key Pair
                             </button>
-                        </div>
-                        <div class="invalid-feedback" id="passphraseError"></div>
-                    </div>
-                    
-                    <div class="mb-3" id="confirmPassphraseGroup">
-                        <label for="confirmPassphrase" class="form-label">Confirm Passphrase</label>
-                        <div class="input-group">
-                            <input type="password" class="form-control" id="confirmPassphrase" required>
-                            <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassphrase">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
-                        <div class="invalid-feedback" id="confirmPassphraseError"></div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="createProcessed" checked>
-                            <label class="form-check-label" for="createProcessed">
-                                Create Processed Key File
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-key"></i> Generate Key Pair
-                    </button>
-                </form>
-                
-                <div id="resultArea" class="mt-4">
-                    <h4>Results</h4>
-                    <div id="messages" class="alert alert-info"></div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Snowflake Command</label>
-                        <div class="input-group">
-                            <textarea class="form-control" id="snowflakeCommand" rows="3" readonly></textarea>
-                            <button class="btn btn-outline-secondary copy-btn" type="button" id="copyCommand">
-                                <i class="bi bi-clipboard"></i>
-                            </button>
+                        </form>
+                        
+                        <div id="resultArea" class="mt-4">
+                            <h4>Results</h4>
+                            <div id="messages" class="alert alert-info"></div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Snowflake Command</label>
+                                <div class="input-group">
+                                    <textarea class="form-control" id="snowflakeCommand" rows="3" readonly></textarea>
+                                    <button class="btn btn-outline-secondary copy-btn" type="button" id="copyCommand">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Generated Files</label>
+                                <ul class="list-group" id="fileList"></ul>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Generated Files</label>
-                        <ul class="list-group" id="fileList"></ul>
+                    <!-- New Tab Panes -->
+                    <div class="tab-pane fade" id="process" role="tabpanel" aria-labelledby="process-tab">
+                        <h3 class="mb-4">Process Keys</h3>
+                        <p class="text-muted">Coming soon...</p>
+                    </div>
+                    <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="user-tab">
+                        <h3 class="mb-4">User Management</h3>
+                        <p class="text-muted">Coming soon...</p>
+                    </div>
+                    <div class="tab-pane fade" id="keys" role="tabpanel" aria-labelledby="keymgmt-tab">
+                        <h3 class="mb-4">Key Management</h3>
+                        <p class="text-muted">Coming soon...</p>
                     </div>
                 </div>
             </div>
