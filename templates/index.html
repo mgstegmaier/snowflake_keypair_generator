@@ -218,8 +218,20 @@
             color: var(--text-color);
             border-radius: 0.375rem;
             margin-bottom: 0.25rem;
-            font-size: 0.9rem;
+            width: 90%;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.85rem;
             white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+        }
+
+        .sidebar .nav-link i {
+            font-size: 0.9rem;
         }
 
         .sidebar .nav-link.active,
@@ -347,7 +359,42 @@
                     <!-- New Tab Panes -->
                     <div class="tab-pane fade" id="process" role="tabpanel" aria-labelledby="process-tab">
                         <h3 class="mb-4">Process Keys</h3>
-                        <p class="text-muted">Coming soon...</p>
+                        <div class="mb-3">
+                            <label for="rawKeyInput" class="form-label">Paste Private Key</label>
+                            <textarea class="form-control" id="rawKeyInput" rows="8" placeholder="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="removeBreaks" checked>
+                                <label class="form-check-label" for="removeBreaks">
+                                    Remove Line Breaks
+                                </label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="base64Encode">
+                                <label class="form-check-label" for="base64Encode">
+                                    Base64 Encoding
+                                </label>
+                            </div>
+                        </div>
+                        <button id="processKeyBtn" class="btn btn-primary mb-4"><i class="bi bi-play"></i> Generate Processed Key</button>
+
+                        <div id="processResults" style="display:none;">
+                            <div class="mb-3" id="processedKeyGroup" style="display:none;">
+                                <label class="form-label">Processed Key (No Line Breaks)</label>
+                                <textarea class="form-control" id="processedKeyOutput" rows="5" readonly></textarea>
+                                <button class="btn btn-outline-secondary copy-btn mt-1" type="button" data-copy-target="processedKeyOutput">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
+                            </div>
+                            <div class="mb-3" id="base64KeyGroup" style="display:none;">
+                                <label class="form-label">Base64 Encoded Key</label>
+                                <textarea class="form-control" id="base64KeyOutput" rows="5" readonly></textarea>
+                                <button class="btn btn-outline-secondary copy-btn mt-1" type="button" data-copy-target="base64KeyOutput">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="user-tab">
                         <h3 class="mb-4">User Management</h3>
@@ -521,6 +568,91 @@
                 toastEl.classList.add(type === 'success' ? 'bg-success' : 'bg-danger');
                 toast.show();
             }
+
+            /* -------------------------------
+               Process Keys Tab Logic
+            ------------------------------- */
+            const processKeyBtn = document.getElementById('processKeyBtn');
+            const rawKeyInput = document.getElementById('rawKeyInput');
+            const removeBreaksCbx = document.getElementById('removeBreaks');
+            const base64EncodeCbx = document.getElementById('base64Encode');
+            const processResults = document.getElementById('processResults');
+            const processedKeyGroup = document.getElementById('processedKeyGroup');
+            const processedKeyOutput = document.getElementById('processedKeyOutput');
+            const base64KeyGroup = document.getElementById('base64KeyGroup');
+            const base64KeyOutput = document.getElementById('base64KeyOutput');
+
+            if (processKeyBtn) {
+                processKeyBtn.addEventListener('click', async function () {
+                    const rawKey = rawKeyInput.value.trim();
+                    if (!rawKey) {
+                        showToast('Please paste a private key first', 'error');
+                        return;
+                    }
+
+                    const requestPayload = {
+                        key: rawKey,
+                        remove_line_breaks: removeBreaksCbx.checked,
+                        base64_encoding: base64EncodeCbx.checked
+                    };
+
+                    if (!requestPayload.remove_line_breaks && !requestPayload.base64_encoding) {
+                        showToast('Select at least one processing option', 'error');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/process_key', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(requestPayload)
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok && data.success) {
+                            processResults.style.display = 'block';
+
+                            // Handle Remove Breaks
+                            if (requestPayload.remove_line_breaks && data.processed_key) {
+                                processedKeyGroup.style.display = 'block';
+                                processedKeyOutput.value = data.processed_key;
+                            } else {
+                                processedKeyGroup.style.display = 'none';
+                            }
+
+                            // Handle Base64 Encoding
+                            if (requestPayload.base64_encoding && data.base64_encoded) {
+                                base64KeyGroup.style.display = 'block';
+                                base64KeyOutput.value = data.base64_encoded;
+                            } else {
+                                base64KeyGroup.style.display = 'none';
+                            }
+
+                            showToast('Key processed successfully!', 'success');
+                        } else {
+                            showToast(data.error || 'An error occurred while processing', 'error');
+                        }
+                    } catch (err) {
+                        showToast('An error occurred while processing', 'error');
+                    }
+                });
+            }
+
+            // Generic copy buttons inside Process Keys
+            document.querySelectorAll('[data-copy-target]').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const targetId = this.getAttribute('data-copy-target');
+                    const targetEl = document.getElementById(targetId);
+                    if (targetEl) {
+                        targetEl.select();
+                        document.execCommand('copy');
+                        showToast('Copied to clipboard!', 'success');
+                    }
+                });
+            });
         });
     </script>
 </body>

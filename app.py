@@ -149,6 +149,30 @@ def cleanup(username):
         shutil.rmtree(session_dir)
     return jsonify({'success': True})
 
+@app.route('/process_key', methods=['POST'])
+def process_key():
+    """Process an existing private key according to requested options."""
+    data = request.json or {}
+    key_content = data.get('key', '')
+    remove_line_breaks = data.get('remove_line_breaks', False)
+    base64_encoding = data.get('base64_encoding', False)
+
+    if not key_content or (not remove_line_breaks and not base64_encoding):
+        return jsonify({'success': False, 'error': 'Invalid request'}), 400
+
+    results = {'success': True}
+
+    if remove_line_breaks:
+        # Replace actual newlines with literal \n to mimic previous behaviour
+        results['processed_key'] = key_content.replace('\n', '\\n')
+
+    if base64_encoding:
+        import base64
+        encoded = base64.b64encode(key_content.encode('utf-8')).decode('utf-8')
+        results['base64_encoded'] = encoded
+
+    return jsonify(results)
+
 if __name__ == '__main__':
     Timer(1.5, open_browser).start()
     app.run(host='127.0.0.1', port=5001, debug=True) 
