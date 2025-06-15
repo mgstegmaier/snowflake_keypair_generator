@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory,session, redirect, url_for
+import backend.oauth as oauth
 import os
 import subprocess
 import tempfile
@@ -8,9 +9,18 @@ from pathlib import Path
 import shutil
 import webbrowser
 from threading import Timer
+from functools import wraps
+import backend.snowflake_client as sfc
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.urandom(24)
+# Use a fixed secret key for development
+app.config['SECRET_KEY'] = 'dev-secret-key-123'  # In production, use a secure random key
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
 app.config['UPLOAD_FOLDER'] = os.path.join(tempfile.gettempdir(), 'snowflake_keys')
 
 # Ensure the upload folder exists
@@ -18,7 +28,9 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 def open_browser():
     """Open the browser after the server has started."""
-    webbrowser.open('http://127.0.0.1:5001')
+    # Only open browser if not already opened
+    if not os.environ.get('WERKZEUG_RUN_MAIN'):
+        webbrowser.open('http://127.0.0.1:5001')
 
 def run_command(command):
     """Run a shell command and return its output."""
@@ -112,7 +124,8 @@ DESC USER {username};"""
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    authed = oauth.authenticated()
+    return render_template('index.html', authenticated=authed)
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -173,6 +186,181 @@ def process_key():
 
     return jsonify(results)
 
+def require_pat(f):
+    """Decorator to ensure Authorization header is present for protected endpoints."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid PAT'}), 401
+        # In Phase-1 we trust the presence; later phases can validate.
+        return f(*args, **kwargs)
+    return wrapper
+
+# Test route
+@app.route('/test')
+def test():
+    print("Test route hit")
+    return jsonify({'status': 'ok', 'message': 'Server is responding'})
+
+# OAuth routes
+@app.route('/login')
+def login():
+    # Add debug logging
+    print("Login route hit")
+    print("OAuth Configuration:")
+    print(f"OAUTH_CLIENT_ID: {oauth.OAUTH_CLIENT_ID}")
+    print(f"OAUTH_AUTH_URL: {oauth.OAUTH_AUTH_URL}")
+    print(f"OAUTH_TOKEN_URL: {oauth.OAUTH_TOKEN_URL}")
+    print(f"OAUTH_REDIRECT_URI: {oauth.OAUTH_REDIRECT_URI}")
+    print(f"OAUTH_SCOPE: {oauth.OAUTH_SCOPE}")
+    
+    try:
+        if not oauth.OAUTH_CLIENT_ID:
+            print("Error: OAUTH_CLIENT_ID not set")
+            return jsonify({'error': 'OAuth client ID not configured'}), 500
+        if not oauth.OAUTH_AUTH_URL:
+            print("Error: OAUTH_AUTH_URL not set")
+            return jsonify({'error': 'OAuth auth URL not configured'}), 500
+        if not oauth.OAUTH_TOKEN_URL:
+            print("Error: OAUTH_TOKEN_URL not set")
+            return jsonify({'error': 'OAuth token URL not configured'}), 500
+            
+        auth_url = oauth.build_authorize_url()
+        print(f"Generated auth URL: {auth_url}")
+        # Redirect user to Snowflake OAuth authorize URL
+        return redirect(auth_url)
+    except Exception as e:
+        print(f"Error in login route: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/oauth/callback')
+def oauth_callback():
+    # Handle redirect from Snowflake OAuth
+    print("OAuth callback received")
+    code = request.args.get('code')
+    state = request.args.get('state')
+    print(f"Code: {code}")
+    print(f"State: {state}")
+    
+    if not code:
+        print("Error: No code received")
+        return "No authorization code received.", 400
+        
+    if not state:
+        print("Error: No state received")
+        return "No state parameter received.", 400
+        
+    print("Attempting to exchange code for token")
+    if not oauth.exchange_code(code):
+        print("Token exchange failed")
+        return "OAuth token exchange failed.", 400
+        
+    print("OAuth flow completed successfully")
+    return redirect(url_for('index'))
+
+@app.route('/auth/status')
+def auth_status():
+    authed = oauth.authenticated()
+    print('auth_status called; authenticated=', authed)
+    # Optional: print session keys for debugging (omit token values for brevity)
+    print('Session keys:', list(session.keys()))
+    return jsonify({'authenticated': authed})
+
+@app.route('/auth/logout', methods=['POST'])
+def auth_logout():
+    oauth.logout()
+    return jsonify({'success': True})
+
+# Example protected endpoint (will be replaced with real ones later)
+@app.route('/admin/ping')
+@require_pat
+def admin_ping():
+    return jsonify({'success': True})
+
+# Public liveness endpoint
+@app.route('/ping')
+def ping():
+    return 'pong', 200
+
+# ------------------ Grant Permissions API (Phase 2 Stub) ------------------
+
+# In a real implementation, these will query Snowflake ACCOUNT_USAGE views.
+
+@app.route('/databases')
+@require_pat
+def list_databases():
+    pat = request.headers.get('Authorization')[7:]
+    ensure_sf_conn(pat)
+    try:
+        dbs = sfc.client.list_databases()
+        return jsonify({"success": True, "data": dbs})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/schemas')
+@require_pat
+def list_schemas():
+    db = request.args.get('db')
+    if not db:
+        return jsonify({"success": False, "error": "db param required"}), 400
+    pat = request.headers.get('Authorization')[7:]
+    ensure_sf_conn(pat)
+    try:
+        schemas = sfc.client.list_schemas(db)
+        return jsonify({"success": True, "data": schemas})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/roles')
+@require_pat
+def list_roles():
+    pat = request.headers.get('Authorization')[7:]
+    ensure_sf_conn(pat)
+    try:
+        roles = sfc.client.list_roles()
+        return jsonify({"success": True, "data": roles})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/grant_permissions', methods=['POST'])
+@require_pat
+def grant_permissions():
+    payload = request.json or {}
+    pat = request.headers.get('Authorization')[7:]
+    ensure_sf_conn(pat)
+    try:
+        perm_type = payload.get('perm_type')
+        db = payload.get('db')
+        schema = payload.get('schema')
+        role = payload.get('role')
+        if perm_type == 'read':
+            result = sfc.client.call_stored_procedure('UPLAND_MAINTENANCE.SECURITY.sp_grant_read_perms', [db, schema, role])
+        elif perm_type == 'readwrite':
+            result = sfc.client.call_stored_procedure('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, schema, role, False])
+        elif perm_type == 'dbwide':
+            result = sfc.client.call_stored_procedure('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, '', role, True])
+        else:
+            return jsonify({'success': False, 'error': 'Invalid permission type'}), 400
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# helper to ensure connection
+def ensure_sf_conn(pat: str):
+    if sfc.client._conn is not None:
+        return
+    account_raw = os.getenv('SNOWFLAKE_ACCOUNT', 'UPLAND-EDP')
+    account = account_raw.split('.')[0]  # strip domain if provided
+    user = os.getenv('SNOWFLAKE_USER', 'ADMIN_MSTEGMAIER')
+    warehouse = os.getenv('SNOWFLAKE_WAREHOUSE', 'UPLAND_ENGINEERING')
+    role = os.getenv('SNOWFLAKE_ROLE', 'SYSADMIN')
+    sfc.client.connect(pat=pat, account=account, user=user, warehouse=warehouse, role=role)
+
+# -------------------------------------------------------------------------
+
 if __name__ == '__main__':
+    # Open browser after a short delay
     Timer(1.5, open_browser).start()
+    # Run on port 5001 to match OAuth redirect URI
     app.run(host='127.0.0.1', port=5001, debug=True) 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snowflake Key Pair Generator</title>
+    <title>Snowflake Admin App</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -262,13 +262,67 @@
             background-color: var(--pumpkin-orange) !important;
             color: #fff !important;
         }
+
+        .auth-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .auth-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .auth-dot.green {
+            background: #27ae60;
+        }
+
+        .auth-dot.gray {
+            background: #888;
+        }
+
+        .auth-dot.red {
+            background: #c0392b;
+        }
+
+        .auth-btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .tab-disabled-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(20,20,20,0.85);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #fff;
+            border-radius: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-light">
     <div class="fullscreen-bg">
         <div class="card shadow app-container">
             <nav class="sidebar p-3">
-                <h5 class="text-white mb-4">Menu</h5>
+                <div class="auth-status">
+                    <span id="authDot" class="auth-dot gray"></span>
+                    <span id="authText">Not connected</span>
+                </div>
+                <button class="btn btn-primary btn-sm auth-btn" id="loginBtn" onclick="window.location.href='/login'">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Login to Snowflake
+                </button>
+                <button class="btn btn-outline-danger btn-sm auth-btn" id="logoutBtn" style="display:none;">
+                    <i class="bi bi-box-arrow-right me-1"></i> Logout
+                </button>
+                <h5 class="text-white mb-3">Menu</h5>
                 <ul class="nav nav-pills flex-column mb-auto" id="sideTabs" role="tablist">
                     <li class="nav-item">
                         <a class="nav-link active" id="generate-tab" data-bs-toggle="tab" href="#generate" role="tab">
@@ -290,9 +344,14 @@
                             <i class="bi bi-key-fill me-2"></i>Key Management
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="grant-tab" data-bs-toggle="tab" href="#grant" role="tab">
+                            <i class="bi bi-person-plus me-2"></i>Grant Permissions
+                        </a>
+                    </li>
                 </ul>
             </nav>
-            <div class="content p-4">
+            <div class="content p-4 position-relative">
                 <div class="tab-content" id="tabContent">
                     <div class="tab-pane fade show active" id="generate" role="tabpanel" aria-labelledby="generate-tab">
                         <h3 class="mb-4">Snowflake Key Pair Generator</h3>
@@ -415,6 +474,44 @@
                         <h3 class="mb-4">Key Management</h3>
                         <p class="text-muted">Coming soon...</p>
                     </div>
+                    <div class="tab-pane fade" id="grant" role="tabpanel" aria-labelledby="grant-tab">
+                        <h3 class="mb-4">Grant Permissions</h3>
+                        <form id="grantForm" class="mb-4">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Database</label>
+                                    <select class="form-select" id="gpDatabase" required></select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Schema</label>
+                                    <select class="form-select" id="gpSchema" required></select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Role</label>
+                                    <select class="form-select" id="gpRole" required></select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Permission Type</label><br>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="permType" id="ro" value="read" checked>
+                                    <label class="form-check-label" for="ro">Read-only</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="permType" id="rw" value="readwrite">
+                                    <label class="form-check-label" for="rw">Read/Write</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="permType" id="dbwide" value="dbwide">
+                                    <label class="form-check-label" for="dbwide">DB-wide</label>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle"></i> Grant</button>
+                        </form>
+                    </div>
+                </div>
+                <div id="tabOverlay" class="tab-disabled-overlay" style="display:none;">
+                    <i class="bi bi-lock me-2"></i> Please log in to use admin features.
                 </div>
             </div>
         </div>
@@ -430,6 +527,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        const initialAuth = {{ authenticated | tojson }};  // true or false
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('keyPairForm');
             const encryptedCheckbox = document.getElementById('encrypted');
@@ -445,7 +543,14 @@
             const confirmPassphraseGroup = document.getElementById('confirmPassphraseGroup');
             const confirmPassphraseInput = document.getElementById('confirmPassphrase');
             const toggleConfirmPassphrase = document.getElementById('toggleConfirmPassphrase');
-            
+            const authDot = document.getElementById('authDot');
+            const authText = document.getElementById('authText');
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const tabOverlay = document.getElementById('tabOverlay');
+
+            let isAuthenticated = false; // will be updated by checkAuthStatus
+
             // Toggle passphrase visibility
             togglePassphrase.addEventListener('click', function() {
                 const type = passphraseInput.type === 'password' ? 'text' : 'password';
@@ -668,6 +773,301 @@
                     }
                 });
             });
+
+            /* ----------------- Session Security & PAT ----------------- */
+            const patModalEl = document.getElementById('patModal');
+            const patModal = patModalEl ? new bootstrap.Modal(patModalEl) : null;
+            const toggleEl = document.getElementById('sessionSecurityToggle');
+            const patInput = document.getElementById('patInput');
+            const savePatBtn = document.getElementById('savePatBtn');
+
+            const PAT_KEY = 'snowflake_pat';
+            const POLICY_KEY = 'keep_pat';
+
+            if (toggleEl && patInput && savePatBtn) {
+                // load toggle state (default true)
+                const savedPolicy = sessionStorage.getItem(POLICY_KEY);
+                toggleEl.checked = savedPolicy === null ? true : savedPolicy === 'true';
+
+                // If policy is OFF on load, ensure any persisted PAT is cleared
+                if (!toggleEl.checked) {
+                    sessionStorage.removeItem(PAT_KEY);
+                    window._patMemory = null;
+                }
+
+                toggleEl.addEventListener('change', () => {
+                    sessionStorage.setItem(POLICY_KEY, String(toggleEl.checked));
+                    if (!toggleEl.checked) {
+                        // clear stored PAT when switching to strict mode
+                        sessionStorage.removeItem(PAT_KEY);
+                    }
+                });
+            }
+
+            function getPat() {
+                const memPat = window._patMemory;
+                if (memPat) return memPat;
+                const stored = sessionStorage.getItem(PAT_KEY);
+                if (stored) {
+                    window._patMemory = stored;
+                    return stored;
+                }
+                return null;
+            }
+
+            function handleSavePat(callback) {
+                const patVal = patInput.value.trim();
+                const errorEl = document.getElementById('patError');
+                if (!patVal || patVal.length < 20) {
+                    patInput.classList.add('is-invalid');
+                    errorEl.textContent = 'Please enter a valid PAT (min 20 characters)';
+                    return false;
+                }
+                window._patMemory = patVal;
+                if (toggleEl.checked) {
+                    sessionStorage.setItem(PAT_KEY, patVal);
+                }
+                patInput.value = '';
+                patInput.classList.remove('is-invalid');
+                patModal.hide();
+                updatePatStatus();
+                if (typeof callback === 'function') callback(patVal);
+                return true;
+            }
+
+            // Close modal on save button (if element exists)
+            if (savePatBtn && patModal) {
+                savePatBtn.addEventListener('click', () => handleSavePat());
+            }
+
+            function requirePat(callback) {
+                const pat = getPat();
+                if (pat) {
+                    callback(pat);
+                    return;
+                }
+                // show modal and invoke callback on save (if modal available)
+                if (patModal) patModal.show();
+                // attach temporary once handler to execute callback
+                const tempHandler = () => {
+                    if (handleSavePat(callback)) {
+                        if (savePatBtn && patModal) {
+                            savePatBtn.removeEventListener('click', tempHandler);
+                        }
+                    }
+                };
+                if (savePatBtn && patModal) {
+                    savePatBtn.addEventListener('click', tempHandler);
+                }
+            }
+
+            /* ----------------- Inactivity Timer ----------------- */
+            let lastActivity = Date.now();
+            const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minutes
+
+            ['click', 'keydown', 'mousemove', 'touchstart'].forEach(evt => {
+                document.addEventListener(evt, () => {
+                    lastActivity = Date.now();
+                }, { passive: true });
+            });
+
+            setInterval(() => {
+                if (Date.now() - lastActivity > INACTIVITY_LIMIT) {
+                    // clear PAT and policy
+                    sessionStorage.removeItem(PAT_KEY);
+                    window._patMemory = null;
+                    updatePatStatus();
+                    showToast('Session expired due to inactivity', 'error');
+                    lastActivity = Date.now(); // reset so we don't spam
+                }
+            }, 60 * 1000); // check every minute
+
+            const setPatBtn = document.getElementById('setPatBtn');
+            if (setPatBtn && patModal) {
+                setPatBtn.addEventListener('click', () => {
+                    patModal.show();
+                });
+            }
+
+            function updatePatStatus() {
+                const badge = document.getElementById('patStatus');
+                if (!badge) return; // element may not be present on some pages
+                if (getPat()) {
+                    badge.textContent = 'Active';
+                    badge.classList.remove('bg-secondary');
+                    badge.classList.add('bg-success');
+                } else {
+                    badge.textContent = 'None';
+                    badge.classList.remove('bg-success');
+                    badge.classList.add('bg-secondary');
+                }
+            }
+
+            updatePatStatus(); // initial
+
+            /* -------- Grant Permissions Tab Logic -------- */
+            function fetchWithPat(url) {
+                return new Promise((resolve, reject) => {
+                    requirePat(async pat => {
+                        try {
+                            const res = await fetch(url, { headers: { 'Authorization': `Bearer ${pat}` } });
+                            const data = await res.json();
+                            if (!data.success) {
+                                reject(new Error(data.error || 'Request failed'));
+                            } else {
+                                resolve(data.data);
+                            }
+                        } catch (err) {
+                            reject(err);
+                        }
+                    });
+                });
+            }
+
+            const gpDbSel = document.getElementById('gpDatabase');
+            const gpSchemaSel = document.getElementById('gpSchema');
+            const gpRoleSel = document.getElementById('gpRole');
+
+            async function loadDatabases() {
+                fetchWithPat('/databases').then(list => {
+                    gpDbSel.innerHTML = list.map(db => `<option value="${db}">${db}</option>`).join('');
+                    loadSchemas();
+                }).catch(err => showToast(err.message, 'error'));
+            }
+
+            async function loadSchemas() {
+                const db = gpDbSel.value;
+                fetchWithPat(`/schemas?db=${db}`).then(list => {
+                    gpSchemaSel.innerHTML = list.map(sc => `<option value="${sc}">${sc}</option>`).join('');
+                }).catch(err => showToast(err.message, 'error'));
+            }
+
+            async function loadRoles() {
+                fetchWithPat('/roles').then(list => {
+                    gpRoleSel.innerHTML = list.map(r => `<option value="${r}">${r}</option>`).join('');
+                }).catch(err => showToast(err.message, 'error'));
+            }
+
+            // init when tab first shown
+            document.getElementById('grant-tab').addEventListener('shown.bs.tab', () => {
+                if (!gpDbSel.options.length) {
+                    loadDatabases();
+                    loadRoles();
+                }
+            });
+
+            gpDbSel.addEventListener('change', loadSchemas);
+
+            document.getElementById('grantForm').addEventListener('submit', e => {
+                e.preventDefault();
+                const payload = {
+                    db: gpDbSel.value,
+                    schema: gpSchemaSel.value,
+                    role: gpRoleSel.value,
+                    perm_type: document.querySelector('input[name="permType"]:checked').value
+                };
+                requirePat(async pat => {
+                    try {
+                        const res = await fetch('/grant_permissions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${pat}`
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            showToast('Permissions granted!', 'success');
+                        } else {
+                            showToast(data.error || 'Grant failed', 'error');
+                        }
+                    } catch (err) {
+                        showToast('Grant failed', 'error');
+                    }
+                });
+            });
+
+            async function checkAuthStatus() {
+                console.log('Checking auth status...');
+                try {
+                    const res = await fetch('/auth/status');
+                    const data = await res.json();
+                    console.log('Auth status response:', data);
+                    isAuthenticated = data.authenticated;
+                    updateAuthUI();
+                } catch (e) {
+                    console.error('Error checking auth status:', e);
+                    isAuthenticated = false;
+                    updateAuthUI();
+                }
+            }
+
+            function updateAuthUI() {
+                console.log('Updating auth UI, isAuthenticated:', isAuthenticated);
+                if (isAuthenticated) {
+                    authDot.classList.remove('gray', 'red');
+                    authDot.classList.add('green');
+                    authText.textContent = 'Connected';
+                    loginBtn.style.display = 'none';
+                    logoutBtn.style.display = '';
+                    tabOverlay.style.display = 'none';
+                } else {
+                    authDot.classList.remove('green', 'red');
+                    authDot.classList.add('gray');
+                    authText.textContent = 'Not connected';
+                    loginBtn.style.display = '';
+                    logoutBtn.style.display = 'none';
+                    // determine active tab; if core tabs, keep enabled
+                    const activePane = document.querySelector('.tab-pane.show.active');
+                    const activeId = activePane ? activePane.id : '';
+                    if (activeId === 'generate' || activeId === 'process') {
+                        tabOverlay.style.display = 'none';
+                    } else {
+                        tabOverlay.style.display = '';
+                    }
+                }
+            }
+
+            // Poll status on load and every 60s
+            checkAuthStatus();
+            setInterval(checkAuthStatus, 60000);
+
+            // Ensure login button is properly initialized
+            if (loginBtn) {
+                console.log('Login button found, attaching click handler');
+                loginBtn.addEventListener('click', async (e) => {
+                    console.log('Login button clicked');
+                    e.preventDefault();
+                    try {
+                        console.log('Attempting to navigate to /login');
+                        window.location.href = '/login';
+                    } catch (error) {
+                        console.error('Error during login:', error);
+                        showToast('Error during login: ' + error.message, 'error');
+                    }
+                });
+            } else {
+                console.error('Login button not found in DOM');
+            }
+
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async () => {
+                    try {
+                        const res = await fetch('/auth/logout', { method: 'POST' });
+                        if (res.ok) {
+                            // reset UI and reload page to clear session state
+                            isAuthenticated = false;
+                            updateAuthUI();
+                            window.location.href = '/';
+                        } else {
+                            showToast('Logout failed', 'error');
+                        }
+                    } catch (e) {
+                        showToast('Logout failed', 'error');
+                    }
+                });
+            }
         });
     </script>
 </body>

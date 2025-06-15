@@ -58,7 +58,7 @@ _*Durations are rough dev-days._
 * `/set_public_key` backend route
 
 ## Phase 6 – QA & Hardening
-* Cypress end-to-end tests * Dockerfile/Compose
+* Cypress end-to-end tests* Dockerfile/Compose
 
 ---
 
