@@ -8,14 +8,28 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         :root {
-            --pumpkin-orange: #d35400;
-            --soft-pumpkin: #e67e22;
-            --dark-bg: #1a1a1a;
-            --darker-bg: #141414;
-            --card-bg: #242424;
-            --text-color: #e0e0e0;
-            --border-color: #333333;
-            --muted-text: #a0a0a0;
+            /* Brand Color Palette */
+            --brand-main: #c36c2d;
+            --light-shade: #faf7f2;
+            --light-accent: #c59f6b;
+            --dark-shade: #a26d58;
+            --dark-accent: #2f2e3c;
+            
+            /* Semantic Colors */
+            --tuscany: #c56c30;        /* Primary */
+            --charade: #252430;        /* Info */
+            --asparagus: #709b46;      /* Success */
+            --golden-bell: #ee8b0e;    /* Warning */
+            --pomegranate: #f44336;    /* Danger */
+            
+            /* Application Colors */
+            --dark-bg: var(--charade);
+            --secondary-bg: #2e2c38;
+            --darker-bg: #1a1820;
+            --card-bg: #3a3848;
+            --text-color: var(--light-shade);
+            --border-color: #4a4858;
+            --muted-text: #b8b5a8;
         }
 
         html, body {
@@ -23,7 +37,7 @@
             width: 100%;
             margin: 0;
             padding: 0;
-            background: var(--dark-bg) !important;
+            background: var(--secondary-bg) !important;
             color: var(--text-color);
         }
 
@@ -34,7 +48,7 @@
             display: flex;
             align-items: flex-start;
             justify-content: center;
-            background: var(--dark-bg) !important;
+            background: var(--secondary-bg) !important;
             padding-top: 2rem;
         }
 
@@ -49,7 +63,7 @@
         }
 
         .card-header {
-            background-color: var(--pumpkin-orange) !important;
+            background-color: var(--brand-main) !important;
             border-color: var(--border-color);
             color: white;
         }
@@ -61,7 +75,7 @@
         }
 
         .form-control:focus {
-            box-shadow: 0 0 0 0.25rem rgba(211, 84, 0, 0.25);
+            box-shadow: 0 0 0 0.25rem rgba(195, 108, 45, 0.25);
         }
 
         .form-control::placeholder {
@@ -78,8 +92,8 @@
         }
 
         .form-check-input:checked {
-            background-color: var(--pumpkin-orange);
-            border-color: var(--pumpkin-orange);
+            background-color: var(--tuscany);
+            border-color: var(--tuscany);
         }
 
         .form-check-label {
@@ -87,14 +101,14 @@
         }
 
         .btn-primary {
-            background-color: var(--pumpkin-orange);
-            border-color: var(--pumpkin-orange);
+            background-color: var(--tuscany);
+            border-color: var(--tuscany);
             color: white;
         }
 
         .btn-primary:hover {
-            background-color: var(--soft-pumpkin);
-            border-color: var(--soft-pumpkin);
+            background-color: var(--light-accent);
+            border-color: var(--light-accent);
             color: white;
         }
 
@@ -107,7 +121,7 @@
         .btn-outline-secondary:hover {
             background-color: var(--darker-bg);
             border-color: var(--border-color);
-            color: var(--soft-pumpkin);
+            color: var(--light-accent);
         }
 
         .list-group-item {
@@ -123,27 +137,27 @@
         }
 
         .alert-keygen {
-            background-color: var(--pumpkin-orange);
-            border-color: var(--pumpkin-orange);
+            background-color: var(--brand-main);
+            border-color: var(--brand-main);
             color: #fff;
         }
 
         .copy-btn {
             cursor: pointer;
-            color: var(--soft-pumpkin);
+            color: var(--light-accent);
         }
 
         .copy-btn:hover {
-            color: var(--pumpkin-orange);
+            color: var(--tuscany);
         }
 
         .download-btn {
             cursor: pointer;
-            color: var(--soft-pumpkin);
+            color: var(--light-accent);
         }
 
         .download-btn:hover {
-            color: var(--pumpkin-orange);
+            color: var(--tuscany);
             text-decoration: underline;
         }
 
@@ -242,7 +256,7 @@
 
         .sidebar .nav-link.active,
         .sidebar .nav-link:hover {
-            background-color: var(--pumpkin-orange);
+            background-color: var(--brand-main);
             color: #fff;
         }
 
@@ -260,7 +274,7 @@
 
         /* Pumpkin colored toast */
         .bg-pumpkin {
-            background-color: var(--pumpkin-orange) !important;
+            background-color: var(--brand-main) !important;
             color: #fff !important;
         }
 
@@ -279,7 +293,7 @@
         }
 
         .auth-dot.green {
-            background: #27ae60;
+            background: var(--asparagus);
         }
 
         .auth-dot.gray {
@@ -287,7 +301,7 @@
         }
 
         .auth-dot.red {
-            background: #c0392b;
+            background: var(--pomegranate);
         }
 
         .auth-btn {
@@ -306,6 +320,43 @@
             font-size: 1.2rem;
             color: #fff;
             border-radius: 0.5rem;
+        }
+
+        /* Custom Bootstrap badge colors using our semantic palette */
+        .badge.bg-success {
+            background-color: var(--asparagus) !important;
+        }
+        
+        .badge.bg-danger {
+            background-color: var(--pomegranate) !important;
+        }
+        
+        .badge.bg-warning {
+            background-color: var(--golden-bell) !important;
+            color: #000 !important; /* Dark text for better contrast on yellow */
+        }
+        
+        .badge.bg-secondary {
+            background-color: #6c757d !important; /* Keep Bootstrap's secondary gray */
+        }
+
+        /* Custom table and modal styling to match main app background */
+        .table-app-bg {
+            background-color: var(--secondary-bg) !important;
+        }
+        
+        .table-app-bg th,
+        .table-app-bg td {
+            background-color: var(--secondary-bg) !important;
+            border-color: var(--border-color) !important;
+        }
+        
+        .table-striped-app > tbody > tr:nth-of-type(odd) > td {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        
+        .modal-app-bg {
+            background-color: var(--secondary-bg) !important;
         }
     </style>
 </head>
@@ -498,7 +549,7 @@
 
                         <!-- Users Table -->
                         <div class="table-responsive">
-                            <table class="table table-dark table-striped table-hover" id="usersTable">
+                            <table class="table table-app-bg table-striped-app text-light table-hover" id="usersTable">
                                 <thead class="table-dark">
                                     <tr>
                                         <th>Username</th>
@@ -696,12 +747,12 @@
     <!-- User Details Modal -->
     <div class="modal fade" id="userDetailsModal" tabindex="-1" aria-labelledby="userDetailsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content bg-dark text-light">
-                <div class="modal-header bg-dark border-secondary">
+                                <div class="modal-content modal-app-bg text-light">
+                        <div class="modal-header modal-app-bg border-secondary">
                     <h5 class="modal-title text-light" id="userDetailsModalLabel">User Details</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body bg-dark text-light">
+                                        <div class="modal-body modal-app-bg text-light">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-2"><strong class="text-muted">Username:</strong> <span class="text-light" id="detailUsername"></span></div>
@@ -744,7 +795,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-dark border-secondary">
+                                        <div class="modal-footer modal-app-bg border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>

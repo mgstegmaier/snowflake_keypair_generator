@@ -73,3 +73,49 @@ flowchart TD
   – User-friendly error messages  
   – Detailed logging for debugging  
   – Fallback UI states for empty data sets
+
+## UI Color Palette & Design System
+
+### Brand Color Palette
+| Role | Hex Code | CSS Variable | Usage |
+|------|----------|--------------|-------|
+| Brand/Main | `#c36c2d` | `--brand-main` | Primary brand color, headers, key elements |
+| Light Shade | `#faf7f2` | `--light-shade` | Primary text color, light backgrounds |
+| Light Accent | `#c59f6b` | `--light-accent` | Hover states, secondary highlights |
+| Dark Shade | `#a26d58` | `--dark-shade` | Muted elements, borders |
+| Dark Accent | `#2f2e3c` | `--dark-accent` | Background elements, cards |
+
+### Semantic Color Palette
+| Color Name | Hex Code | CSS Variable | Bootstrap Context | Usage |
+|------------|----------|--------------|-------------------|-------|
+| Tuscany | `#c56c30` | `--tuscany` | Primary | Main action buttons, primary CTAs |
+| Charade | `#252430` | `--charade` | Info | Background, informational elements |
+| Asparagus | `#709b46` | `--asparagus` | Success | Success states, positive indicators |
+| Golden Bell | `#ee8b0e` | `--golden-bell` | Warning | Warning states, attention needed |
+| Pomegranate | `#f44336` | `--pomegranate` | Danger | Error states, destructive actions |
+
+### Application-Specific Colors
+| Element | Hex Code | CSS Variable | Usage |
+|---------|----------|--------------|-------|
+| Dark Background | `var(--charade)` | `--dark-bg` | Sidebar background |
+| Secondary Background | `#2e2c38` | `--secondary-bg` | Main app background |
+| Darker Background | `#1a1820` | `--darker-bg` | Form inputs, deeper elements |
+| Card Background | `#3a3848` | `--card-bg` | Card/modal backgrounds |
+| Text Color | `var(--light-shade)` | `--text-color` | Primary text |
+| Border Color | `#4a4858` | `--border-color` | Element borders |
+| Muted Text | `#b8b5a8` | `--muted-text` | Secondary text, labels |
+
+### Security Indicator Colors
+- **Success/Enabled**: `var(--asparagus)` with white text
+- **Disabled/Not Set**: `#6c757d` (Bootstrap secondary) with dark text
+- **Active Status**: `var(--asparagus)` 
+- **Locked Status**: `var(--pomegranate)`
+- **Warning Status**: `var(--golden-bell)`
+
+### Implementation Notes
+- All colors defined as CSS custom properties in `:root`
+- Semantic colors align with Bootstrap 5.3 contextual classes
+- Dark theme optimized for professional administrative interface
+- Consistent hover states use `--light-accent` for interactive elements
+- Focus states use 25% opacity of primary brand color for accessibility
+- Bootstrap badge classes overridden with custom semantic colors
