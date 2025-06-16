@@ -199,8 +199,9 @@
 
         /* --- Dashboard Layout Additions --- */
         .app-container {
-            max-width: 960px;
-            width: 90vw;
+            min-width: 960px;
+            width: max-content;
+            max-width: 95vw;
             min-height: 90vh;
             display: flex;
             flex-direction: row;
@@ -316,6 +317,7 @@
                     <span id="authDot" class="auth-dot gray"></span>
                     <span id="authText">Not connected</span>
                 </div>
+                <div class="text-muted mb-2" id="userLabel" style="font-size:0.8rem;"></div>
                 <button class="btn btn-primary btn-sm auth-btn" id="loginBtn" onclick="window.location.href='/login'">
                     <i class="bi bi-box-arrow-in-right me-1"></i> Login to Snowflake
                 </button>
@@ -468,7 +470,69 @@
                     </div>
                     <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="user-tab">
                         <h3 class="mb-4">User Management</h3>
-                        <p class="text-muted">Coming soon...</p>
+                        
+                        <!-- Search and Filter Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="userSearch" placeholder="Search users...">
+                                    <button class="btn btn-outline-secondary" type="button" id="searchUsersBtn">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="userStatusFilter">
+                                    <option value="">All Users</option>
+                                    <option value="active">Active Only</option>
+                                    <option value="disabled">Disabled Only</option>
+                                    <option value="locked">Locked Only</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-primary" id="refreshUsers">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Users Table -->
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped table-hover" id="usersTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Display Name</th>
+                                        <th>Status</th>
+                                        <th style="width: 220px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <nav aria-label="Users pagination" id="usersPagination" style="display: none;">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item">
+                                    <a class="page-link" href="#" id="prevPage">Previous</a>
+                                </li>
+                                <li class="page-item active">
+                                    <span class="page-link" id="currentPageInfo">Page 1 of 1</span>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="#" id="nextPage">Next</a>
+                                </li>
+                            </ul>
+                        </nav>
                     </div>
                     <div class="tab-pane fade" id="keys" role="tabpanel" aria-labelledby="keymgmt-tab">
                         <h3 class="mb-4">Key Management</h3>
@@ -478,32 +542,51 @@
                         <h3 class="mb-4">Grant Permissions</h3>
                         <form id="grantForm" class="mb-4">
                             <div class="row g-3 mb-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Database</label>
                                     <select class="form-select" id="gpDatabase" required></select>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Schema</label>
                                     <select class="form-select" id="gpSchema" required></select>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Role</label>
                                     <select class="form-select" id="gpRole" required></select>
                                 </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Warehouse</label>
+                                    <select class="form-select" id="gpWarehouse" required></select>
+                                </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Permission Type</label><br>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="permType" id="ro" value="read" checked>
-                                    <label class="form-check-label" for="ro">Read-only</label>
+                                <label class="form-label">Read-Only</label><br>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="permType" id="readGrantSchema" value="read_grant_schema" checked>
+                                    <label class="form-check-label" for="readGrantSchema">Grant Schema-Level Read Only</label>
                                 </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="permType" id="rw" value="readwrite">
-                                    <label class="form-check-label" for="rw">Read/Write</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="permType" id="readRevokeSchema" value="read_revoke_schema">
+                                    <label class="form-check-label" for="readRevokeSchema">Revoke Schema-Level Permissions</label>
                                 </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="permType" id="dbwide" value="dbwide">
-                                    <label class="form-check-label" for="dbwide">DB-wide</label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Read / Write</label><br>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="permType" id="rwGrantSchema" value="rw_grant_schema">
+                                    <label class="form-check-label" for="rwGrantSchema">Grant Schema-Level Permissions</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="permType" id="rwGrantDb" value="rw_grant_dbwide">
+                                    <label class="form-check-label" for="rwGrantDb">Grant Database-Wide Permissions</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="permType" id="rwRevokeSchema" value="rw_revoke_schema">
+                                    <label class="form-check-label" for="rwRevokeSchema">Revoke Schema-Level Permissions</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="permType" id="rwRevokeDb" value="rw_revoke_dbwide">
+                                    <label class="form-check-label" for="rwRevokeDb">Revoke Database-Wide Permissions</label>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle"></i> Grant</button>
@@ -523,6 +606,149 @@
             <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
         <div class="toast-body"></div>
+    </div>
+
+    <!-- User Action Modals -->
+    <!-- Unlock User Modal -->
+    <div class="modal fade" id="unlockUserModal" tabindex="-1" aria-labelledby="unlockUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="unlockUserModalLabel">Unlock User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to unlock the user <strong id="unlockUsername"></strong>?</p>
+                    <p class="text-muted">This will immediately allow the user to log in again.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" id="confirmUnlockUser">
+                        <i class="bi bi-unlock"></i> Unlock User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resetPasswordModalLabel">Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Reset password for user <strong id="resetUsername"></strong></p>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">New Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="newPassword" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggleNewPassword">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmNewPassword" class="form-label">Confirm Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="confirmNewPassword" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggleConfirmNewPassword">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <div class="invalid-feedback" id="passwordMismatchError"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmResetPassword">
+                        <i class="bi bi-key"></i> Reset Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unset Password Modal -->
+    <div class="modal fade" id="unsetPasswordModal" tabindex="-1" aria-labelledby="unsetPasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="unsetPasswordModalLabel">Unset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to unset the password for user <strong id="unsetUsername"></strong>?</p>
+                    <p class="text-muted">This will remove the user's password. They will need to authenticate using other methods (SSO, key pairs, etc.).</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmUnsetPassword">
+                        <i class="bi bi-x-circle"></i> Unset Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Details Modal -->
+    <div class="modal fade" id="userDetailsModal" tabindex="-1" aria-labelledby="userDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-light">
+                <div class="modal-header bg-dark border-secondary">
+                    <h5 class="modal-title text-light" id="userDetailsModalLabel">User Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-dark text-light">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong class="text-muted">Username:</strong> <span class="text-light" id="detailUsername"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Login Name:</strong> <span class="text-light" id="detailLoginName"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Display Name:</strong> <span class="text-light" id="detailDisplayName"></span></div>
+                            <div class="mb-2"><strong class="text-muted">First Name:</strong> <span class="text-light" id="detailFirstName"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Last Name:</strong> <span class="text-light" id="detailLastName"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Email:</strong> <span class="text-light" id="detailEmail"></span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong class="text-muted">Status:</strong> <span id="detailStatus"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Created On:</strong> <span class="text-light" id="detailCreatedOn"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Last Login:</strong> <span class="text-light" id="detailLastLogin"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Default Role:</strong> <span class="text-light" id="detailDefaultRole"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Default Warehouse:</strong> <span class="text-light" id="detailDefaultWarehouse"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Days to Expiry:</strong> <span class="text-light" id="detailDaysToExpiry"></span></div>
+                        </div>
+                    </div>
+                    <hr class="border-secondary my-3">
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-3"><i class="bi bi-shield-check me-2"></i>Security Indicators</h6>
+                            <div class="d-flex gap-4 flex-wrap">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-key me-2"></i>
+                                    <span class="text-muted me-2">Public Key:</span>
+                                    <span id="detailPublicKey"></span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-person-badge me-2"></i>
+                                    <span class="text-muted me-2">SSO:</span>
+                                    <span id="detailSSO"></span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-shield-lock me-2"></i>
+                                    <span class="text-muted me-2">MFA:</span>
+                                    <span id="detailMFA"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -774,96 +1000,33 @@
                 });
             });
 
-            /* ----------------- Session Security & PAT ----------------- */
-            const patModalEl = document.getElementById('patModal');
-            const patModal = patModalEl ? new bootstrap.Modal(patModalEl) : null;
-            const toggleEl = document.getElementById('sessionSecurityToggle');
-            const patInput = document.getElementById('patInput');
-            const savePatBtn = document.getElementById('savePatBtn');
-
-            const PAT_KEY = 'snowflake_pat';
-            const POLICY_KEY = 'keep_pat';
-
-            if (toggleEl && patInput && savePatBtn) {
-                // load toggle state (default true)
-                const savedPolicy = sessionStorage.getItem(POLICY_KEY);
-                toggleEl.checked = savedPolicy === null ? true : savedPolicy === 'true';
-
-                // If policy is OFF on load, ensure any persisted PAT is cleared
-                if (!toggleEl.checked) {
-                    sessionStorage.removeItem(PAT_KEY);
-                    window._patMemory = null;
-                }
-
-                toggleEl.addEventListener('change', () => {
-                    sessionStorage.setItem(POLICY_KEY, String(toggleEl.checked));
-                    if (!toggleEl.checked) {
-                        // clear stored PAT when switching to strict mode
-                        sessionStorage.removeItem(PAT_KEY);
-                    }
-                });
-            }
-
-            function getPat() {
-                const memPat = window._patMemory;
-                if (memPat) return memPat;
-                const stored = sessionStorage.getItem(PAT_KEY);
-                if (stored) {
-                    window._patMemory = stored;
-                    return stored;
-                }
-                return null;
-            }
-
-            function handleSavePat(callback) {
-                const patVal = patInput.value.trim();
-                const errorEl = document.getElementById('patError');
-                if (!patVal || patVal.length < 20) {
-                    patInput.classList.add('is-invalid');
-                    errorEl.textContent = 'Please enter a valid PAT (min 20 characters)';
-                    return false;
-                }
-                window._patMemory = patVal;
-                if (toggleEl.checked) {
-                    sessionStorage.setItem(PAT_KEY, patVal);
-                }
-                patInput.value = '';
-                patInput.classList.remove('is-invalid');
-                patModal.hide();
-                updatePatStatus();
-                if (typeof callback === 'function') callback(patVal);
-                return true;
-            }
-
-            // Close modal on save button (if element exists)
-            if (savePatBtn && patModal) {
-                savePatBtn.addEventListener('click', () => handleSavePat());
-            }
-
-            function requirePat(callback) {
-                const pat = getPat();
-                if (pat) {
-                    callback(pat);
-                    return;
-                }
-                // show modal and invoke callback on save (if modal available)
-                if (patModal) patModal.show();
-                // attach temporary once handler to execute callback
-                const tempHandler = () => {
-                    if (handleSavePat(callback)) {
-                        if (savePatBtn && patModal) {
-                            savePatBtn.removeEventListener('click', tempHandler);
-                        }
-                    }
-                };
-                if (savePatBtn && patModal) {
-                    savePatBtn.addEventListener('click', tempHandler);
-                }
-            }
-
             /* ----------------- Inactivity Timer ----------------- */
             let lastActivity = Date.now();
             const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minutes
+            let inactivityInterval = null;
+
+            function startInactivityTimer() {
+                if (inactivityInterval) return; // already running
+                lastActivity = Date.now();
+                inactivityInterval = setInterval(() => {
+                    if (!isAuthenticated) return; // just in case
+                    if (Date.now() - lastActivity > INACTIVITY_LIMIT) {
+                        showToast('Session expired due to inactivity', 'error');
+                        // Trigger backend logout
+                        fetch('/auth/logout', { method: 'POST' }).finally(() => {
+                            isAuthenticated = false;
+                            updateAuthUI();
+                        });
+                    }
+                }, 60 * 1000);
+            }
+
+            function stopInactivityTimer() {
+                if (inactivityInterval) {
+                    clearInterval(inactivityInterval);
+                    inactivityInterval = null;
+                }
+            }
 
             ['click', 'keydown', 'mousemove', 'touchstart'].forEach(evt => {
                 document.addEventListener(evt, () => {
@@ -871,81 +1034,100 @@
                 }, { passive: true });
             });
 
-            setInterval(() => {
-                if (Date.now() - lastActivity > INACTIVITY_LIMIT) {
-                    // clear PAT and policy
-                    sessionStorage.removeItem(PAT_KEY);
-                    window._patMemory = null;
-                    updatePatStatus();
-                    showToast('Session expired due to inactivity', 'error');
-                    lastActivity = Date.now(); // reset so we don't spam
-                }
-            }, 60 * 1000); // check every minute
-
-            const setPatBtn = document.getElementById('setPatBtn');
-            if (setPatBtn && patModal) {
-                setPatBtn.addEventListener('click', () => {
-                    patModal.show();
-                });
-            }
-
-            function updatePatStatus() {
-                const badge = document.getElementById('patStatus');
-                if (!badge) return; // element may not be present on some pages
-                if (getPat()) {
-                    badge.textContent = 'Active';
-                    badge.classList.remove('bg-secondary');
-                    badge.classList.add('bg-success');
-                } else {
-                    badge.textContent = 'None';
-                    badge.classList.remove('bg-success');
-                    badge.classList.add('bg-secondary');
-                }
-            }
-
-            updatePatStatus(); // initial
-
             /* -------- Grant Permissions Tab Logic -------- */
-            function fetchWithPat(url) {
-                return new Promise((resolve, reject) => {
-                    requirePat(async pat => {
-                        try {
-                            const res = await fetch(url, { headers: { 'Authorization': `Bearer ${pat}` } });
-                            const data = await res.json();
-                            if (!data.success) {
-                                reject(new Error(data.error || 'Request failed'));
-                            } else {
-                                resolve(data.data);
-                            }
-                        } catch (err) {
-                            reject(err);
-                        }
-                    });
+            function fetchWithAuth(url, options = {}) {
+                return fetch(url, options).then(async res => {
+                    if (res.status === 401) {
+                        isAuthenticated = false;
+                        updateAuthUI();
+                        throw new Error('Not authenticated');
+                    }
+                    const ct = res.headers.get('content-type') || '';
+                    if (ct.includes('application/json')) {
+                        const data = await res.json();
+                        if (!data.success) throw new Error(data.error || 'Request failed');
+                        return data.data;
+                    }
+                    // fallback text
+                    const txt = await res.text();
+                    throw new Error(txt.slice(0, 120) || 'Unexpected response');
                 });
             }
 
             const gpDbSel = document.getElementById('gpDatabase');
             const gpSchemaSel = document.getElementById('gpSchema');
             const gpRoleSel = document.getElementById('gpRole');
+            const gpWarehouseSel = document.getElementById('gpWarehouse');
+            const grantBtn = document.querySelector('#grantForm button[type="submit"]');
+
+            function setGrantLoading(isLoading) {
+                if (!grantBtn) return;
+                if (isLoading) {
+                    grantBtn.disabled = true;
+                    grantBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+                } else {
+                    grantBtn.innerHTML = '<i class="bi bi-check2-circle"></i> Grant';
+                    updateGrantState();
+                }
+            }
+
+            function updateGrantState() {
+                if (!grantBtn) return;
+                const ready = gpDbSel.value && gpSchemaSel.value && gpRoleSel.value && gpWarehouseSel.value;
+                grantBtn.disabled = !ready;
+            }
 
             async function loadDatabases() {
-                fetchWithPat('/databases').then(list => {
+                gpDbSel.disabled = true;
+                setGrantLoading(true);
+                fetchWithAuth('/databases').then(list => {
                     gpDbSel.innerHTML = list.map(db => `<option value="${db}">${db}</option>`).join('');
+                    // Default to DEV_UPLAND_BRONZE_DB if available
+                    if (list.includes('DEV_UPLAND_BRONZE_DB')) {
+                        gpDbSel.value = 'DEV_UPLAND_BRONZE_DB';
+                    }
+                    gpDbSel.disabled = false;
                     loadSchemas();
-                }).catch(err => showToast(err.message, 'error'));
+                }).catch(err => showToast(err.message, 'error'))
+                  .finally(() => setGrantLoading(false));
             }
 
             async function loadSchemas() {
                 const db = gpDbSel.value;
-                fetchWithPat(`/schemas?db=${db}`).then(list => {
+                gpSchemaSel.disabled = true;
+                setGrantLoading(true);
+                fetchWithAuth(`/schemas?db=${db}`).then(list => {
                     gpSchemaSel.innerHTML = list.map(sc => `<option value="${sc}">${sc}</option>`).join('');
-                }).catch(err => showToast(err.message, 'error'));
+                    gpSchemaSel.disabled = false;
+                    updateGrantState();
+                }).catch(err => showToast(err.message, 'error'))
+                  .finally(() => setGrantLoading(false));
             }
 
             async function loadRoles() {
-                fetchWithPat('/roles').then(list => {
+                gpRoleSel.disabled = true;
+                setGrantLoading(true);
+                fetchWithAuth('/roles').then(list => {
                     gpRoleSel.innerHTML = list.map(r => `<option value="${r}">${r}</option>`).join('');
-                }).catch(err => showToast(err.message, 'error'));
+                    gpRoleSel.disabled = false;
+                    updateGrantState();
+                }).catch(err => showToast(err.message, 'error'))
+                  .finally(() => setGrantLoading(false));
+            }
+
+            async function loadWarehouses() {
+                gpWarehouseSel.disabled = true;
+                setGrantLoading(true);
+                fetchWithAuth('/warehouses').then(list => {
+                    gpWarehouseSel.innerHTML = list.map(wh => `<option value="${wh}">${wh}</option>`).join('');
+                    // Default to UPLAND_ENGINEERING_WH if available
+                    if (list.includes('UPLAND_ENGINEERING_WH')) {
+                        gpWarehouseSel.value = 'UPLAND_ENGINEERING_WH';
+                    }
+                    gpWarehouseSel.disabled = false;
+                    updateGrantState();
+                }).catch(err => showToast(err.message, 'error'))
+                  .finally(() => setGrantLoading(false));
             }
 
             // init when tab first shown
@@ -953,10 +1135,14 @@
                 if (!gpDbSel.options.length) {
                     loadDatabases();
                     loadRoles();
+                    loadWarehouses();
                 }
             });
 
-            gpDbSel.addEventListener('change', loadSchemas);
+            gpDbSel.addEventListener('change', () => { loadSchemas(); updateGrantState(); });
+            gpSchemaSel.addEventListener('change', updateGrantState);
+            gpRoleSel.addEventListener('change', updateGrantState);
+            gpWarehouseSel.addEventListener('change', updateGrantState);
 
             document.getElementById('grantForm').addEventListener('submit', e => {
                 e.preventDefault();
@@ -964,15 +1150,15 @@
                     db: gpDbSel.value,
                     schema: gpSchemaSel.value,
                     role: gpRoleSel.value,
+                    warehouse: gpWarehouseSel.value,
                     perm_type: document.querySelector('input[name="permType"]:checked').value
                 };
-                requirePat(async pat => {
+                (async () => {
                     try {
                         const res = await fetch('/grant_permissions', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${pat}`
+                                'Content-Type': 'application/json'
                             },
                             body: JSON.stringify(payload)
                         });
@@ -985,7 +1171,7 @@
                     } catch (err) {
                         showToast('Grant failed', 'error');
                     }
-                });
+                })();
             });
 
             async function checkAuthStatus() {
@@ -1012,6 +1198,24 @@
                     loginBtn.style.display = 'none';
                     logoutBtn.style.display = '';
                     tabOverlay.style.display = 'none';
+
+                    // fetch identity info
+                    fetch('/auth/userinfo').then(r => r.json()).then(info => {
+                        if (!info.success) return;
+                        document.getElementById('userLabel').textContent = `Signed in as ${info.user} (${info.role})`;
+
+                        const grantTabLink = document.getElementById('grant-tab');
+                        if (!info.can_grant && grantTabLink) {
+                            grantTabLink.classList.add('disabled');
+                            grantTabLink.setAttribute('title', 'Insufficient privileges');
+                            grantTabLink.addEventListener('click', e => e.preventDefault());
+                            if (activePane?.id === 'grant') {
+                                document.getElementById('generate-tab').click();
+                            }
+                        }
+                    }).catch(()=>{});
+
+                    startInactivityTimer();
                 } else {
                     authDot.classList.remove('green', 'red');
                     authDot.classList.add('gray');
@@ -1026,6 +1230,8 @@
                     } else {
                         tabOverlay.style.display = '';
                     }
+
+                    stopInactivityTimer();
                 }
             }
 
@@ -1068,6 +1274,346 @@
                     }
                 });
             }
+
+            // Users tab functionality
+            let allUsers = [];
+            let currentPage = 1;
+            const usersPerPage = 20;
+            
+            // Load users when tab is shown
+            document.getElementById('user-tab').addEventListener('shown.bs.tab', function () {
+                if (isAuthenticated) {
+                    loadUsers();
+                }
+            });
+
+            // Search and filter functionality
+            document.getElementById('userSearch').addEventListener('input', filterUsers);
+            document.getElementById('userStatusFilter').addEventListener('change', filterUsers);
+            document.getElementById('refreshUsers').addEventListener('click', loadUsers);
+
+            // Modal functionality
+            const unlockUserModal = new bootstrap.Modal(document.getElementById('unlockUserModal'));
+            const resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+            const unsetPasswordModal = new bootstrap.Modal(document.getElementById('unsetPasswordModal'));
+            const userDetailsModal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+
+            // Toggle password visibility
+            document.getElementById('toggleNewPassword').addEventListener('click', function() {
+                const input = document.getElementById('newPassword');
+                const type = input.type === 'password' ? 'text' : 'password';
+                input.type = type;
+                this.querySelector('i').classList.toggle('bi-eye');
+                this.querySelector('i').classList.toggle('bi-eye-slash');
+            });
+
+            document.getElementById('toggleConfirmNewPassword').addEventListener('click', function() {
+                const input = document.getElementById('confirmNewPassword');
+                const type = input.type === 'password' ? 'text' : 'password';
+                input.type = type;
+                this.querySelector('i').classList.toggle('bi-eye');
+                this.querySelector('i').classList.toggle('bi-eye-slash');
+            });
+
+            // Unlock user confirmation
+            document.getElementById('confirmUnlockUser').addEventListener('click', async function() {
+                const username = document.getElementById('unlockUsername').textContent;
+                try {
+                    const response = await fetchWithAuth(`/users/${encodeURIComponent(username)}/unlock`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast(data.message, 'success');
+                        unlockUserModal.hide();
+                        loadUsers(); // Refresh the table
+                    } else {
+                        showToast(data.error || 'Failed to unlock user', 'error');
+                    }
+                } catch (error) {
+                    showToast('Error unlocking user: ' + error.message, 'error');
+                }
+            });
+
+            // Unset password confirmation
+            document.getElementById('confirmUnsetPassword').addEventListener('click', async function() {
+                const username = document.getElementById('unsetUsername').textContent;
+                try {
+                    const response = await fetchWithAuth(`/users/${encodeURIComponent(username)}/unset_password`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast(data.message, 'success');
+                        unsetPasswordModal.hide();
+                        loadUsers(); // Refresh the table
+                    } else {
+                        showToast(data.error || 'Failed to unset password', 'error');
+                    }
+                } catch (error) {
+                    showToast('Error unsetting password: ' + error.message, 'error');
+                }
+            });
+
+            // Reset password confirmation
+            document.getElementById('confirmResetPassword').addEventListener('click', async function() {
+                const username = document.getElementById('resetUsername').textContent;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmNewPassword').value;
+                
+                // Clear previous errors
+                document.getElementById('newPassword').classList.remove('is-invalid');
+                document.getElementById('confirmNewPassword').classList.remove('is-invalid');
+                document.getElementById('passwordMismatchError').textContent = '';
+                
+                if (!newPassword) {
+                    document.getElementById('newPassword').classList.add('is-invalid');
+                    return;
+                }
+                
+                if (newPassword !== confirmPassword) {
+                    document.getElementById('confirmNewPassword').classList.add('is-invalid');
+                    document.getElementById('passwordMismatchError').textContent = 'Passwords do not match';
+                    return;
+                }
+                
+                try {
+                    const response = await fetchWithAuth(`/users/${encodeURIComponent(username)}/reset_password`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ new_password: newPassword })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast(data.message, 'success');
+                        resetPasswordModal.hide();
+                        // Clear form
+                        document.getElementById('newPassword').value = '';
+                        document.getElementById('confirmNewPassword').value = '';
+                        loadUsers(); // Refresh the table
+                    } else {
+                        showToast(data.error || 'Failed to reset password', 'error');
+                    }
+                } catch (error) {
+                    showToast('Error resetting password: ' + error.message, 'error');
+                }
+            });
+
+            async function loadUsers() {
+                const tableBody = document.getElementById('usersTableBody');
+                tableBody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
+                
+                try {
+                    const users = await fetchWithAuth('/users');
+                    allUsers = users;
+                    filterUsers();
+                } catch (error) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error loading users: ${error.message}</td></tr>`;
+                }
+            }
+
+            function filterUsers() {
+                const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+                const statusFilter = document.getElementById('userStatusFilter').value;
+                
+                let filteredUsers = allUsers.filter(user => {
+                    const matchesSearch = 
+                        user.name.toLowerCase().includes(searchTerm) ||
+                        user.login_name.toLowerCase().includes(searchTerm) ||
+                        user.display_name.toLowerCase().includes(searchTerm);
+                    
+                    let matchesStatus = true;
+                    if (statusFilter === 'active') {
+                        matchesStatus = !user.disabled && !user.snowflake_lock;
+                    } else if (statusFilter === 'disabled') {
+                        matchesStatus = user.disabled;
+                    } else if (statusFilter === 'locked') {
+                        matchesStatus = user.snowflake_lock;
+                    }
+                    
+                    return matchesSearch && matchesStatus;
+                });
+                
+                displayUsers(filteredUsers);
+            }
+
+            function displayUsers(users) {
+                const tableBody = document.getElementById('usersTableBody');
+                const pagination = document.getElementById('usersPagination');
+                
+                if (users.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No users found</td></tr>';
+                    pagination.style.display = 'none';
+                    return;
+                }
+                
+                // Pagination logic
+                const totalPages = Math.ceil(users.length / usersPerPage);
+                const startIndex = (currentPage - 1) * usersPerPage;
+                const endIndex = startIndex + usersPerPage;
+                const paginatedUsers = users.slice(startIndex, endIndex);
+                
+                // Update pagination info
+                document.getElementById('currentPageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+                document.getElementById('prevPage').parentElement.classList.toggle('disabled', currentPage === 1);
+                document.getElementById('nextPage').parentElement.classList.toggle('disabled', currentPage === totalPages);
+                pagination.style.display = totalPages > 1 ? 'block' : 'none';
+                
+                                // Generate table rows
+                tableBody.innerHTML = paginatedUsers.map(user => {
+                    const status = getUserStatus(user);
+                    const displayName = user.display_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name;
+                    const dropdownId = `userDropdown_${user.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                    
+                    return `
+                        <tr>
+                            <td><small><strong>${user.name}</strong></small></td>
+                            <td><small>${displayName}</small></td>
+                            <td><small>${status}</small></td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select class="form-select form-select-sm" id="${dropdownId}" style="width: 140px;">
+                                        <option value="">Select Action</option>
+                                        ${user.snowflake_lock ? '<option value="unlock">Unlock User</option>' : ''}
+                                        <option value="reset">Reset Password</option>
+                                        <option value="unset">Unset Password</option>
+                                        <option value="details">View Details</option>
+                                    </select>
+                                    <button class="btn btn-primary btn-sm" onclick="executeUserAction('${user.name}', '${dropdownId}')" style="white-space: nowrap;">
+                                        Go!
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            function getUserStatus(user) {
+                if (user.disabled) {
+                    return '<span class="badge bg-secondary">Disabled</span>';
+                } else if (user.snowflake_lock) {
+                    return '<span class="badge bg-danger">Locked</span>';
+                } else if (user.must_change_password) {
+                    return '<span class="badge bg-warning">Must Change Password</span>';
+                } else {
+                    return '<span class="badge bg-success">Active</span>';
+                }
+            }
+
+            // Global functions for modal triggers
+            window.showUnlockModal = function(username) {
+                document.getElementById('unlockUsername').textContent = username;
+                unlockUserModal.show();
+            };
+
+            window.showResetPasswordModal = function(username) {
+                document.getElementById('resetUsername').textContent = username;
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmNewPassword').value = '';
+                document.getElementById('newPassword').classList.remove('is-invalid');
+                document.getElementById('confirmNewPassword').classList.remove('is-invalid');
+                document.getElementById('passwordMismatchError').textContent = '';
+                resetPasswordModal.show();
+            };
+
+            window.showUnsetPasswordModal = function(username) {
+                document.getElementById('unsetUsername').textContent = username;
+                unsetPasswordModal.show();
+            };
+
+            window.showUserDetailsModal = function(username) {
+                // Find the user in allUsers array
+                const user = allUsers.find(u => u.name === username);
+                if (user) {
+                    document.getElementById('detailUsername').textContent = user.name || '';
+                    document.getElementById('detailLoginName').textContent = user.login_name || '';
+                    document.getElementById('detailDisplayName').textContent = user.display_name || '';
+                    document.getElementById('detailFirstName').textContent = user.first_name || '';
+                    document.getElementById('detailLastName').textContent = user.last_name || '';
+                    document.getElementById('detailEmail').textContent = user.email || '';
+                    document.getElementById('detailStatus').innerHTML = getUserStatus(user);
+                    document.getElementById('detailCreatedOn').textContent = user.created_on || '';
+                    document.getElementById('detailLastLogin').textContent = user.last_success_login || 'Never';
+                    document.getElementById('detailDefaultRole').textContent = user.default_role || '';
+                    document.getElementById('detailDefaultWarehouse').textContent = user.default_warehouse || '';
+                    document.getElementById('detailDaysToExpiry').textContent = user.days_to_expiry || 'N/A';
+                    
+                    // Security indicators
+                    const publicKeyEl = document.getElementById('detailPublicKey');
+                    const ssoEl = document.getElementById('detailSSO');
+                    const mfaEl = document.getElementById('detailMFA');
+                    
+                    // Public Key indicator
+                    if (user.has_rsa_public_key) {
+                        publicKeyEl.innerHTML = '<span class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Configured</span>';
+                    } else {
+                        publicKeyEl.innerHTML = '<span class="badge bg-secondary text-dark"><i class="bi bi-x-circle me-1"></i>Not Set</span>';
+                    }
+                    
+                    // SSO indicator (inferred from lack of password)
+                    if (!user.has_password) {
+                        ssoEl.innerHTML = '<span class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Enabled</span>';
+                    } else {
+                        ssoEl.innerHTML = '<span class="badge bg-secondary text-dark"><i class="bi bi-x-circle me-1"></i>Not Used</span>';
+                    }
+                    
+                    // MFA indicator
+                    if (user.has_mfa) {
+                        mfaEl.innerHTML = '<span class="badge bg-success text-white"><i class="bi bi-shield-check me-1"></i>Enrolled</span>';
+                    } else {
+                        mfaEl.innerHTML = '<span class="badge bg-secondary text-dark"><i class="bi bi-shield-exclamation me-1"></i>Not Enrolled</span>';
+                    }
+                }
+                userDetailsModal.show();
+            };
+
+            // Execute user action from dropdown
+            window.executeUserAction = function(username, dropdownId) {
+                const dropdown = document.getElementById(dropdownId);
+                const action = dropdown.value;
+                
+                if (!action) {
+                    showToast('Please select an action first', 'warning');
+                    return;
+                }
+                
+                if (action === 'unlock') {
+                    showUnlockModal(username);
+                } else if (action === 'reset') {
+                    showResetPasswordModal(username);
+                } else if (action === 'unset') {
+                    showUnsetPasswordModal(username);
+                } else if (action === 'details') {
+                    showUserDetailsModal(username);
+                }
+                
+                // Reset dropdown
+                dropdown.value = '';
+            };
+
+            // Pagination controls
+            document.getElementById('prevPage').addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentPage > 1) {
+                    currentPage--;
+                    filterUsers();
+                }
+            });
+
+            document.getElementById('nextPage').addEventListener('click', function(e) {
+                e.preventDefault();
+                const totalPages = Math.ceil(allUsers.length / usersPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    filterUsers();
+                }
+            });
         });
     </script>
 </body>

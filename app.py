@@ -12,6 +12,10 @@ from threading import Timer
 from functools import wraps
 import backend.snowflake_client as sfc
 from dotenv import load_dotenv
+from backend import security as sec
+import time
+import logging
+from snowflake.connector import errors as sf_errors
 
 load_dotenv()
 
@@ -25,6 +29,10 @@ app.config['UPLOAD_FOLDER'] = os.path.join(tempfile.gettempdir(), 'snowflake_key
 
 # Ensure the upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# ---------- Logging setup ----------
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+logger = logging.getLogger('snowflake-admin-app')
 
 def open_browser():
     """Open the browser after the server has started."""
@@ -186,16 +194,31 @@ def process_key():
 
     return jsonify(results)
 
-def require_pat(f):
-    """Decorator to ensure Authorization header is present for protected endpoints."""
+def require_oauth(f):
+    """Decorator to ensure the user has a valid Snowflake OAuth token in session."""
     @wraps(f)
     def wrapper(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Missing or invalid PAT'}), 401
-        # In Phase-1 we trust the presence; later phases can validate.
+        if not oauth.authenticated():
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        now = time.time()
+        last = session.get('last_activity', now)
+        if (now - last) > sec.INACTIVITY_TIMEOUT_SECONDS:
+            session.clear()
+            return jsonify({'error': 'Session expired due to inactivity'}), 401
+        session['last_activity'] = now
         return f(*args, **kwargs)
     return wrapper
+
+# --------------------- Utility helpers ---------------------
+
+# Mask tokens for logs
+def _redact(token: str, show: int = 4) -> str:
+    if not token:
+        return '<empty>'
+    return token[:show] + '…' + f'({len(token)} chars)'
+
+# ----------------------- Routes ----------------------------
 
 # Test route
 @app.route('/test')
@@ -272,9 +295,19 @@ def auth_logout():
     oauth.logout()
     return jsonify({'success': True})
 
+# User info route
+@app.route('/auth/userinfo')
+@require_oauth
+def userinfo():
+    ident = oauth.current_identity()
+    if not ident:
+        return jsonify({'success': False, 'error': 'Unable to decode token'}), 500
+    can_grant = ident['role'] in oauth.ALLOW_GRANT_ROLES
+    return jsonify({'success': True, 'user': ident['user'], 'role': ident['role'], 'can_grant': can_grant})
+
 # Example protected endpoint (will be replaced with real ones later)
 @app.route('/admin/ping')
-@require_pat
+@require_oauth
 def admin_ping():
     return jsonify({'success': True})
 
@@ -288,74 +321,247 @@ def ping():
 # In a real implementation, these will query Snowflake ACCOUNT_USAGE views.
 
 @app.route('/databases')
-@require_pat
+@require_oauth
 def list_databases():
-    pat = request.headers.get('Authorization')[7:]
-    ensure_sf_conn(pat)
+    ensure_sf_conn()
     try:
         dbs = sfc.client.list_databases()
         return jsonify({"success": True, "data": dbs})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(e)
 
 @app.route('/schemas')
-@require_pat
+@require_oauth
 def list_schemas():
     db = request.args.get('db')
     if not db:
         return jsonify({"success": False, "error": "db param required"}), 400
-    pat = request.headers.get('Authorization')[7:]
-    ensure_sf_conn(pat)
+    ensure_sf_conn()
     try:
         schemas = sfc.client.list_schemas(db)
         return jsonify({"success": True, "data": schemas})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(e)
 
 @app.route('/roles')
-@require_pat
+@require_oauth
 def list_roles():
-    pat = request.headers.get('Authorization')[7:]
-    ensure_sf_conn(pat)
+    ensure_sf_conn()
     try:
         roles = sfc.client.list_roles()
         return jsonify({"success": True, "data": roles})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(e)
 
 @app.route('/grant_permissions', methods=['POST'])
-@require_pat
+@require_oauth
 def grant_permissions():
     payload = request.json or {}
-    pat = request.headers.get('Authorization')[7:]
-    ensure_sf_conn(pat)
+    ensure_sf_conn()
     try:
         perm_type = payload.get('perm_type')
         db = payload.get('db')
         schema = payload.get('schema')
         role = payload.get('role')
-        if perm_type == 'read':
-            result = sfc.client.call_stored_procedure('UPLAND_MAINTENANCE.SECURITY.sp_grant_read_perms', [db, schema, role])
-        elif perm_type == 'readwrite':
-            result = sfc.client.call_stored_procedure('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, schema, role, False])
-        elif perm_type == 'dbwide':
-            result = sfc.client.call_stored_procedure('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, '', role, True])
-        else:
-            return jsonify({'success': False, 'error': 'Invalid permission type'}), 400
-        return jsonify(result)
+        warehouse = payload.get('warehouse')
+
+        # Validate required fields
+        if not warehouse:
+            return jsonify({'success': False, 'error': 'Warehouse is required'}), 400
+
+        # Enhanced logging
+        print(f"Grant request: {perm_type} on {db}.{schema} to role {role} using warehouse {warehouse}")
+
+        # Set the warehouse before executing stored procedure
+        sfc.client.set_warehouse(warehouse)
+
+        proc_map = {
+            'read_grant_schema': ('UPLAND_MAINTENANCE.SECURITY.sp_grant_read_perms', [db, schema, role]),
+            'read_revoke_schema': ('UPLAND_MAINTENANCE.SECURITY.sp_revoke_read_perms', [db, schema, role]),
+            'readwrite_grant_schema': ('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, schema, role, False]),
+            'readwrite_revoke_schema': ('UPLAND_MAINTENANCE.SECURITY.sp_revoke_readwrite_perms', [db, schema, role, False]),
+            'readwrite_grant_database': ('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, None, role, True]),
+            'readwrite_revoke_database': ('UPLAND_MAINTENANCE.SECURITY.sp_revoke_readwrite_perms', [db, None, role, True])
+        }
+
+        if perm_type not in proc_map:
+            return jsonify({'success': False, 'error': f'Unknown permission type: {perm_type}'}), 400
+
+        proc_name, args = proc_map[perm_type]
+        print(f"Executing stored procedure: {proc_name} with args: {args}")
+        
+        result = sfc.client.call_stored_procedure(proc_name, args)
+        return jsonify({'success': True, 'message': f'Permissions {"granted" if "grant" in perm_type else "revoked"} successfully', 'details': result})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        error_msg = str(e)
+        print(f"Detailed error in grant_permissions: {error_msg}")
+        
+        # Check for specific permission-related errors
+        if "Insufficient privileges" in error_msg:
+            return jsonify({
+                'success': False, 
+                'error': f'Insufficient privileges: Your current role may not have permission to grant access to the role "{role}". You may need SECURITYADMIN or higher privileges to grant permissions to other roles.',
+                'details': error_msg
+            }), 403
+        
+        return error_response(e)
+
+@app.route('/warehouses')
+@require_oauth
+def list_warehouses():
+    ensure_sf_conn()
+    try:
+        whs = sfc.client.list_warehouses()
+        return jsonify({"success": True, "data": whs})
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/debug/procedures')
+@require_oauth
+def debug_procedures():
+    ensure_sf_conn()
+    try:
+        procs = sfc.client.list_stored_procedures('UPLAND_MAINTENANCE.SECURITY')
+        return jsonify({"success": True, "procedures": procs})
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/users')
+@require_oauth
+def list_users():
+    """List all users with their details."""
+    ensure_sf_conn()
+    try:
+        users = sfc.client.list_users()
+        return jsonify({"success": True, "data": users})
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/users/<username>/unlock', methods=['POST'])
+@require_oauth
+def unlock_user(username):
+    """Unlock a user account."""
+    ensure_sf_conn()
+    try:
+        # Set warehouse before calling stored procedure
+        if hasattr(sfc.client, '_warehouse') and sfc.client._warehouse:
+            sfc.client.set_warehouse(sfc.client._warehouse)
+        
+        result = sfc.client.call_stored_procedure(
+            'UPLAND_MAINTENANCE.SECURITY.sp_unlock_user', 
+            [username]
+        )
+        return jsonify({
+            "success": True, 
+            "message": f"User {username} unlocked successfully",
+            "details": result
+        })
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Error unlocking user {username}: {error_msg}")
+        
+        if "does not exist" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': f'User "{username}" does not exist'
+            }), 404
+        
+        return error_response(e)
+
+@app.route('/users/<username>/reset_password', methods=['POST'])
+@require_oauth
+def reset_user_password(username):
+    """Reset a user's password."""
+    ensure_sf_conn()
+    try:
+        payload = request.json or {}
+        new_password = payload.get('new_password')
+        
+        if not new_password:
+            return jsonify({'success': False, 'error': 'New password is required'}), 400
+        
+        # Set warehouse before calling stored procedure
+        if hasattr(sfc.client, '_warehouse') and sfc.client._warehouse:
+            sfc.client.set_warehouse(sfc.client._warehouse)
+        
+        result = sfc.client.call_stored_procedure(
+            'UPLAND_MAINTENANCE.SECURITY.sp_reset_password', 
+            [username, new_password]
+        )
+        return jsonify({
+            "success": True, 
+            "message": f"Password reset for user {username}",
+            "details": result
+        })
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Error resetting password for user {username}: {error_msg}")
+        
+        if "does not exist" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': f'User "{username}" does not exist'
+            }), 404
+        
+        return error_response(e)
+
+@app.route('/users/<username>/unset_password', methods=['POST'])
+@require_oauth
+def unset_user_password(username):
+    """Unset a user's password."""
+    ensure_sf_conn()
+    try:
+        # Set warehouse before calling stored procedure
+        if hasattr(sfc.client, '_warehouse') and sfc.client._warehouse:
+            sfc.client.set_warehouse(sfc.client._warehouse)
+        
+        result = sfc.client.call_stored_procedure(
+            'UPLAND_MAINTENANCE.SECURITY.sp_unset_password', 
+            [username]
+        )
+        return jsonify({
+            "success": True, 
+            "message": f"Password unset for user {username}",
+            "details": result
+        })
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Error unsetting password for user {username}: {error_msg}")
+        
+        if "does not exist" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': f'User "{username}" does not exist'
+            }), 404
+        
+        return error_response(e)
 
 # helper to ensure connection
-def ensure_sf_conn(pat: str):
+def ensure_sf_conn():
+    # Skip connection during unit tests
+    if app.config.get('TESTING'):
+        return
     if sfc.client._conn is not None:
         return
+    token = oauth.get_access_token()
+    if not token:
+        raise RuntimeError('No OAuth token in session')
     account_raw = os.getenv('SNOWFLAKE_ACCOUNT', 'UPLAND-EDP')
-    account = account_raw.split('.')[0]  # strip domain if provided
+    account = account_raw.split('.')[0]
     user = os.getenv('SNOWFLAKE_USER', 'ADMIN_MSTEGMAIER')
     warehouse = os.getenv('SNOWFLAKE_WAREHOUSE', 'UPLAND_ENGINEERING')
     role = os.getenv('SNOWFLAKE_ROLE', 'SYSADMIN')
-    sfc.client.connect(pat=pat, account=account, user=user, warehouse=warehouse, role=role)
+    logger.info('Opening Snowflake connection as %s role=%s warehouse=%s token=%s', user, role, warehouse, _redact(token))
+    sfc.client.connect(pat=token, account=account, user=user, warehouse=warehouse, role=role)
+
+# Standard JSON error envelope
+def error_response(exc: Exception, status: int = 500):
+    if isinstance(exc, sf_errors.Error):
+        msg = exc.msg or str(exc)
+    else:
+        msg = str(exc)
+    logger.error('API error: %s', msg)
+    return jsonify({'success': False, 'error': msg}), status
 
 # -------------------------------------------------------------------------
 

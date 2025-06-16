@@ -49,7 +49,8 @@ As an admin, I want to see a list of all users in the Snowflake account, search 
 - Provide inline quick actions for each user:
   - Unlock account
   - Reset password
-  - View user details (optional)
+  - Unset password
+  - View user details
 - On action, confirm the user's intent (e.g., modal or dialog) before submitting the change.
 - After action, refresh the relevant user's row and display a success or error message.
 - If session security is set to clear PAT after each action, clear the PAT after the operation.
@@ -127,10 +128,14 @@ As an admin, I want to set or update the RSA public key for a given user, and I 
 - `UPLAND_MAINTENANCE.SECURITY.sp_revoke_readwrite_perms(STRING, STRING, STRING, BOOLEAN)`
 
 ## User Management Stored Procedures
-
+  - Unlock user: `UPLAND_MAINTENANCE.SECURITY.sp_unlock_user(STRING)` 
+  - Reset password: `UPLAND_MAINTENANCE.SECURITY.sp_reset_password(STRING, STRING)`
+  - Unset password: `UPLAND_MAINTENANCE.SECURITY.sp_unset_password(username STRING)`
+  - View user details 
 - `UPLAND_MAINTENANCE.SECURITY.sp_unlock_user(STRING)`
 - `UPLAND_MAINTENANCE.SECURITY.sp_reset_password(STRING, STRING)`
 - `UPLAND_MAINTENANCE.SECURITY.sp_set_public_key(STRING, STRING)`
+- `UPLAND_MAINTENANCE.SECURITY.sp_unset_password(username STRING)`
 
 ---
 
