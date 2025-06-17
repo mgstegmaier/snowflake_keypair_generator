@@ -18,6 +18,7 @@ def client(monkeypatch):
     monkeypatch.setattr(sfc.client, "list_databases", lambda: dummy_list)
     monkeypatch.setattr(sfc.client, "list_schemas", lambda db: [f"{db}_SC1", f"{db}_SC2"])
     monkeypatch.setattr(sfc.client, "list_roles", lambda: ["ROLE1", "ROLE2"])
+    monkeypatch.setattr(sfc.client, "set_warehouse", lambda wh: None)
     monkeypatch.setattr(sfc.client, "call_stored_procedure", lambda proc, args: {"success": True, "procedure": proc, "args": args})
 
     # Pretend OAuth is authenticated
@@ -58,7 +59,8 @@ def test_grant_permissions_read(client):
         "db": "DB1",
         "schema": "PUBLIC",
         "role": "DEV",
-        "perm_type": "read",
+        "perm_type": "read_grant_schema",
+        "warehouse": "TEST_WH"
     }
     resp = client.post("/grant_permissions", data=json.dumps(payload), content_type="application/json")
     assert resp.status_code == 200

@@ -12,7 +12,7 @@ def client(monkeypatch):
     client = flask_app.app.test_client()
 
     # Mock OAuth auth + token
-    dummy_token = jwt.encode({'sub': 'ACCT.JDOE', 'role': 'DEV'}, SECRET, algorithm='HS256')
+    dummy_token = jwt.encode({'sub': 'ACCT.JDOE', 'scope': 'session:role:DEV'}, SECRET, algorithm='HS256')
 
     import backend.oauth as oauth
     monkeypatch.setattr(oauth, 'authenticated', lambda: True)
