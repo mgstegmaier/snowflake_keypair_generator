@@ -358,6 +358,56 @@
         .modal-app-bg {
             background-color: var(--secondary-bg) !important;
         }
+
+        /* Brand button styling */
+        .btn-brand {
+            background-color: var(--brand-main) !important;
+            border-color: var(--brand-main) !important;
+            color: var(--light-shade) !important;
+        }
+        
+        .btn-brand:hover {
+            background-color: var(--light-accent) !important;
+            border-color: var(--light-accent) !important;
+            color: var(--light-shade) !important;
+        }
+        
+        .btn-brand:focus,
+        .btn-brand:active {
+            background-color: var(--dark-shade) !important;
+            border-color: var(--dark-shade) !important;
+            color: var(--light-shade) !important;
+            box-shadow: 0 0 0 0.25rem rgba(195, 108, 45, 0.25) !important;
+        }
+
+        /* Pagination styling with brand colors */
+        .pagination .page-link {
+            background-color: var(--darker-bg) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-color) !important;
+        }
+        
+        .pagination .page-link:hover {
+            background-color: var(--brand-main) !important;
+            border-color: var(--brand-main) !important;
+            color: var(--light-shade) !important;
+        }
+        
+        .pagination .page-item.active .page-link {
+            background-color: var(--brand-main) !important;
+            border-color: var(--brand-main) !important;
+            color: var(--light-shade) !important;
+        }
+        
+        .pagination .page-item.disabled .page-link {
+            background-color: var(--darker-bg) !important;
+            border-color: var(--border-color) !important;
+            color: var(--muted-text) !important;
+        }
+        
+        .pagination .page-link:focus {
+            box-shadow: 0 0 0 0.25rem rgba(195, 108, 45, 0.25) !important;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -390,6 +440,11 @@
                     <li class="nav-item">
                         <a class="nav-link" id="user-tab" data-bs-toggle="tab" href="#users" role="tab">
                             <i class="bi bi-people me-2"></i>User Management
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="roles-tab" data-bs-toggle="tab" href="#roles" role="tab">
+                            <i class="bi bi-shield-check me-2"></i>Roles Management
                         </a>
                     </li>
                     <li class="nav-item">
@@ -426,7 +481,7 @@
                             <div class="mb-3" id="passphraseGroup">
                                 <label for="passphrase" class="form-label">Passphrase</label>
                                 <div class="input-group">
-                                    <input type="password" class="form-control" id="passphrase" required>
+                                    <input type="password" class="form-control" id="passphrase">
                                     <button class="btn btn-outline-secondary" type="button" id="togglePassphrase">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -437,7 +492,7 @@
                             <div class="mb-3" id="confirmPassphraseGroup">
                                 <label for="confirmPassphrase" class="form-label">Confirm Passphrase</label>
                                 <div class="input-group">
-                                    <input type="password" class="form-control" id="confirmPassphrase" required>
+                                    <input type="password" class="form-control" id="confirmPassphrase">
                                     <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassphrase">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -527,7 +582,7 @@
                             <div class="col-md-6">
                                 <div class="input-group">
                                     <input type="text" class="form-control" id="userSearch" placeholder="Search users...">
-                                    <button class="btn btn-outline-secondary" type="button" id="searchUsersBtn">
+                                    <button class="btn btn-brand" type="button" id="searchUsersBtn">
                                         <i class="bi bi-search"></i>
                                     </button>
                                 </div>
@@ -541,7 +596,7 @@
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <button class="btn btn-outline-primary" id="refreshUsers">
+                                <button class="btn btn-brand" id="refreshUsers">
                                     <i class="bi bi-arrow-clockwise"></i> Refresh
                                 </button>
                             </div>
@@ -585,29 +640,171 @@
                             </ul>
                         </nav>
                     </div>
+                    <div class="tab-pane fade" id="roles" role="tabpanel" aria-labelledby="roles-tab">
+                        <h3 class="mb-4">Roles Management</h3>
+                        
+                        <!-- Search and Filter Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="roleSearch" placeholder="Search roles...">
+                                    <button class="btn btn-brand" type="button" id="searchRolesBtn">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="roleTypeFilter">
+                                    <option value="">All Roles</option>
+                                    <option value="system">System Roles</option>
+                                    <option value="custom">Custom Roles</option>
+                                    <option value="current">Current Role</option>
+                                    <option value="inherited">Inherited Roles</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-brand" id="refreshRoles">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Roles Table -->
+                        <div class="table-responsive">
+                            <table class="table table-app-bg table-striped-app text-light table-hover" id="rolesTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Role Name</th>
+                                        <th>Type</th>
+                                        <th>Users Assigned</th>
+                                        <th>Granted Roles</th>
+                                        <th>Owner</th>
+                                        <th>Created</th>
+                                        <th style="width: 120px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rolesTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <nav aria-label="Roles pagination" id="rolesPagination" style="display: none;">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item">
+                                    <a class="page-link" href="#" id="rolesPrevPage">Previous</a>
+                                </li>
+                                <li class="page-item active">
+                                    <span class="page-link" id="rolesCurrentPageInfo">Page 1 of 1</span>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="#" id="rolesNextPage">Next</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
                     <div class="tab-pane fade" id="keys" role="tabpanel" aria-labelledby="keymgmt-tab">
                         <h3 class="mb-4">Key Management</h3>
-                        <p class="text-muted">Coming soon...</p>
+                        
+                        <!-- Search and Filter Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="keySearch" placeholder="Search users...">
+                                    <button class="btn btn-brand" type="button" id="searchKeysBtn">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="keyStatusFilter">
+                                    <option value="">All Users</option>
+                                    <option value="has_keys">Has RSA Keys</option>
+                                    <option value="no_keys">No RSA Keys</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-brand" id="refreshKeys">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Key Management Table -->
+                        <div class="table-responsive">
+                            <table class="table table-app-bg table-striped-app text-light table-hover" id="keysTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="cursor: pointer;" onclick="sortKeysTable('name')">
+                                            Username <i class="bi bi-arrow-down-up" id="sort-name"></i>
+                                        </th>
+                                        <th style="cursor: pointer;" onclick="sortKeysTable('display_name')">
+                                            Display Name <i class="bi bi-arrow-down-up" id="sort-display_name"></i>
+                                        </th>
+                                        <th style="cursor: pointer;" onclick="sortKeysTable('rsa_keys')">
+                                            RSA Keys <i class="bi bi-arrow-down-up" id="sort-rsa_keys"></i>
+                                        </th>
+                                        <th style="width: 150px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="keysTableBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <nav aria-label="Keys pagination" id="keysPagination" style="display: none;">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item">
+                                    <a class="page-link" href="#" id="keysPrevPage">Previous</a>
+                                </li>
+                                <li class="page-item active">
+                                    <span class="page-link" id="keysCurrentPageInfo">Page 1 of 1</span>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="#" id="keysNextPage">Next</a>
+                                </li>
+                            </ul>
+                        </nav>
                     </div>
                     <div class="tab-pane fade" id="grant" role="tabpanel" aria-labelledby="grant-tab">
-                        <h3 class="mb-4">Grant Permissions</h3>
-                        <form id="grantForm" class="mb-4">
-                            <div class="row g-3 mb-3">
-                                <div class="col-md-3">
-                                    <label class="form-label">Database</label>
-                                    <select class="form-select" id="gpDatabase" required></select>
+                        <div class="grant-permissions-container" style="width: fit-content; max-width: 100%;">
+                            <h3 class="mb-4">Grant Permissions</h3>
+                            <form id="grantForm" class="mb-4">
+                            <div class="d-flex gap-4 mb-3">
+                                <div style="min-width: 250px;">
+                                    <div class="mb-3">
+                                        <label class="form-label">Database</label>
+                                        <select class="form-select" id="gpDatabase" required></select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Schema</label>
+                                        <select class="form-select" id="gpSchema" required></select>
+                                    </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Schema</label>
-                                    <select class="form-select" id="gpSchema" required></select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Role</label>
-                                    <select class="form-select" id="gpRole" required></select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Warehouse</label>
-                                    <select class="form-select" id="gpWarehouse" required></select>
+                                <div style="min-width: 250px;">
+                                    <div class="mb-3">
+                                        <label class="form-label">Role</label>
+                                        <select class="form-select" id="gpRole" required></select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Warehouse</label>
+                                        <select class="form-select" id="gpWarehouse" required></select>
+                                    </div>
                                 </div>
                             </div>
                             <div class="mb-3">
@@ -642,6 +839,7 @@
                             </div>
                             <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle"></i> Grant</button>
                         </form>
+                        </div>
                     </div>
                 </div>
                 <div id="tabOverlay" class="tab-disabled-overlay" style="display:none;">
@@ -744,6 +942,143 @@
         </div>
     </div>
 
+    <!-- Set Public Key Modal -->
+    <div class="modal fade" id="setKeyModal" tabindex="-1" aria-labelledby="setKeyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="setKeyModalLabel">Set Public Key</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body modal-app-bg text-light">
+                    <p>Set RSA public key for user <strong id="setKeyUsername"></strong></p>
+                    <div class="mb-3">
+                        <label for="keyNumber" class="form-label">Key Slot</label>
+                        <select class="form-select" id="keyNumber">
+                            <option value="1">Key 1 (Primary)</option>
+                            <option value="2">Key 2 (Secondary)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="publicKeyContent" class="form-label">Public Key</label>
+                        <textarea class="form-control" id="publicKeyContent" rows="8" placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----END PUBLIC KEY-----&#10;&#10;OR paste just the key content without headers"></textarea>
+                        <div class="form-text">Paste the complete public key file content (with or without headers) or just the key content.</div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Tip:</strong> You can copy the public key from the "Generate Key Pair" tab or upload a previously generated key.
+                    </div>
+                </div>
+                <div class="modal-footer modal-app-bg border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-brand" id="confirmSetKey">
+                        <i class="bi bi-key"></i> Set Public Key
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remove Public Key Modal -->
+    <div class="modal fade" id="removeKeyModal" tabindex="-1" aria-labelledby="removeKeyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="removeKeyModalLabel">Remove Public Key</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body modal-app-bg text-light">
+                    <p>Are you sure you want to remove <strong id="removeKeySlot"></strong> for user <strong id="removeKeyUsername"></strong>?</p>
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> This will remove the user's public key. They will not be able to authenticate using this key pair until a new key is set.
+                    </div>
+                </div>
+                <div class="modal-footer modal-app-bg border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmRemoveKey">
+                        <i class="bi bi-trash"></i> Remove Key
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Key Details Modal -->
+    <div class="modal fade" id="userKeyDetailsModal" tabindex="-1" aria-labelledby="userKeyDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="userKeyDetailsModalLabel">User Key Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body modal-app-bg text-light">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong class="text-muted">Username:</strong> <span class="text-light" id="keyDetailUsername"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Display Name:</strong> <span class="text-light" id="keyDetailDisplayName"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Email:</strong> <span class="text-light" id="keyDetailEmail"></span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong class="text-muted">Login Name:</strong> <span class="text-light" id="keyDetailLoginName"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Status:</strong> <span id="keyDetailStatus"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Default Role:</strong> <span class="text-light" id="keyDetailDefaultRole"></span></div>
+                        </div>
+                    </div>
+                    
+                    <h6 class="text-light mb-3"><i class="bi bi-key me-2"></i>RSA Public Keys</h6>
+                    
+                    <!-- Key 1 Details -->
+                    <div class="card bg-dark border-secondary mb-3">
+                        <div class="card-header bg-secondary text-light d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-key me-2"></i>RSA Public Key</span>
+                            <div>
+                                <button class="btn btn-sm btn-brand me-2" onclick="setKeyForUser(keyDetailUsername.textContent, 1)">
+                                    <i class="bi bi-pencil"></i> Set
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="removeKeyForUser(keyDetailUsername.textContent, 1)" id="removeKey1Btn" style="display: none;">
+                                    <i class="bi bi-trash"></i> Remove
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="key1Status" class="mb-2">
+                                <span class="text-muted">Status:</span> <span id="key1StatusText"></span>
+                            </div>
+                            <div id="key1Fingerprint" style="display: none;">
+                                <span class="text-muted">Fingerprint:</span> <code class="text-light" id="key1FingerprintText"></code>
+                            </div>
+                        </div>
+                    </div>
+                    
+
+                    
+                    <h6 class="text-light mb-3"><i class="bi bi-shield-check me-2"></i>Authentication Methods</h6>
+                    <div class="d-flex gap-4 flex-wrap">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-key me-2"></i>
+                            <span class="text-muted me-2">RSA Keys:</span>
+                            <span id="keyDetailHasKeys"></span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-lock me-2"></i>
+                            <span class="text-muted me-2">Password:</span>
+                            <span id="keyDetailHasPassword"></span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-shield-lock me-2"></i>
+                            <span class="text-muted me-2">MFA:</span>
+                            <span id="keyDetailHasMFA"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer modal-app-bg border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- User Details Modal -->
     <div class="modal fade" id="userDetailsModal" tabindex="-1" aria-labelledby="userDetailsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -796,6 +1131,222 @@
                     </div>
                 </div>
                                         <div class="modal-footer modal-app-bg border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role Details Modal -->
+    <div class="modal fade" id="roleDetailsModal" tabindex="-1" aria-labelledby="roleDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="roleDetailsModalLabel">Role Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body modal-app-bg text-light">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong class="text-muted">Role Name:</strong> <span class="text-light" id="detailRoleName"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Owner:</strong> <span class="text-light" id="detailRoleOwner"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Created On:</strong> <span class="text-light" id="detailRoleCreated"></span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong class="text-muted">Users Assigned:</strong> <span class="text-light" id="detailRoleUsersAssigned"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Granted To Roles:</strong> <span class="text-light" id="detailRoleGrantedToRoles"></span></div>
+                            <div class="mb-2"><strong class="text-muted">Granted Roles:</strong> <span class="text-light" id="detailRoleGrantedRoles"></span></div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <strong class="text-muted">Comment:</strong> <span class="text-light" id="detailRoleComment"></span>
+                    </div>
+
+                    <!-- Users and Roles Granted This Role Section -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <h6 class="text-light mb-0 me-2">
+                                <i class="bi bi-people me-2"></i>Users and Roles Granted This Role
+                            </h6>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#roleGrantsSection" aria-expanded="true" aria-controls="roleGrantsSection">
+                                <i class="bi bi-chevron-down" id="roleGrantsChevron"></i>
+                            </button>
+                        </div>
+                        <div class="collapse show" id="roleGrantsSection">
+                            <div id="roleGrantsLoading" class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading grants...</span>
+                                </div>
+                            </div>
+                            <div class="table-responsive" id="roleGrantsTable" style="display: none;">
+                                <table class="table table-sm table-app-bg text-light">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-muted">Granted To</th>
+                                            <th class="text-muted">Type</th>
+                                            <th class="text-muted">Granted By</th>
+                                            <th class="text-muted">Created On</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="roleGrantsBody"></tbody>
+                                </table>
+                            </div>
+                            <div id="roleGrantsEmpty" style="display: none;">
+                                <p class="text-muted text-center">This role has not been granted to any users or roles.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Role Privileges Section -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <h6 class="text-light mb-0 me-2">
+                                <i class="bi bi-shield-check me-2"></i>Privileges Granted to This Role
+                            </h6>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#rolePrivilegesSection" aria-expanded="false" aria-controls="rolePrivilegesSection">
+                                <i class="bi bi-chevron-right" id="rolePrivilegesChevron"></i>
+                            </button>
+                        </div>
+                        <div class="collapse" id="rolePrivilegesSection">
+                            <!-- Privilege Filters -->
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label for="privilegeDbFilter" class="form-label text-muted">Database</label>
+                                    <select class="form-select form-select-sm" id="privilegeDbFilter">
+                                        <option value="">All Databases</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="privilegeSchemaFilter" class="form-label text-muted">Schema</label>
+                                    <select class="form-select form-select-sm" id="privilegeSchemaFilter" disabled>
+                                        <option value="">All Schemas</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="privilegeTypeFilter" class="form-label text-muted">Privilege</label>
+                                    <select class="form-select form-select-sm" id="privilegeTypeFilter">
+                                        <option value="">All Privileges</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <button class="btn btn-brand btn-sm" id="clearPrivilegeFilters">
+                                        <i class="bi bi-x-circle"></i> Clear Filters
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="rolePrivilegesLoading" class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading privileges...</span>
+                                </div>
+                            </div>
+                            <div class="table-responsive" id="rolePrivilegesTable" style="display: none;">
+                                <table class="table table-sm table-app-bg text-light">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-muted">Privilege</th>
+                                            <th class="text-muted">Object Type</th>
+                                            <th class="text-muted">Object Name</th>
+                                            <th class="text-muted">Granted By</th>
+                                            <th class="text-muted">Grant Option</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="rolePrivilegesBody"></tbody>
+                                </table>
+                            </div>
+                            <div id="rolePrivilegesEmpty" style="display: none;">
+                                <p class="text-muted text-center">No privileges found for this role with current filters.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer modal-app-bg border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rotate Key Modal -->
+    <div class="modal fade" id="rotateKeyModal" tabindex="-1" aria-labelledby="rotateKeyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="rotateKeyModalLabel">Set/Rotate RSA Key</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body modal-app-bg text-light">
+                    <p>Generate and set RSA key for user <strong id="rotateKeyUsername"></strong></p>
+                    <p class="text-muted">This will generate a new encrypted private/public key pair and optionally set it in Snowflake.</p>
+                    
+                    <div class="mb-3">
+                        <label for="rotateKeyPassphrase" class="form-label">Passphrase for Private Key</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="rotateKeyPassphrase" required placeholder="Enter passphrase for encryption">
+                            <button class="btn btn-outline-secondary" type="button" id="toggleRotateKeyPassphrase">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="setInSnowflake" checked>
+                        <label class="form-check-label" for="setInSnowflake">
+                            Set the new public key in Snowflake after generation
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer modal-app-bg border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmRotateKey">
+                        <i class="bi bi-arrow-clockwise"></i> Generate & Set Key
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Generation Results Modal -->
+    <div class="modal fade" id="keyGenResultsModal" tabindex="-1" aria-labelledby="keyGenResultsModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="keyGenResultsModalLabel">Key Generation Results</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body modal-app-bg text-light">
+                    <!-- Results Section -->
+                    <div class="mb-4">
+                        <h6 class="text-light mb-3">Results</h6>
+                        <div class="alert alert-info" id="keyGenResults">
+                            <!-- Results will be populated dynamically -->
+                        </div>
+                    </div>
+                    
+                    <!-- Generated Files Section -->
+                    <div class="mb-4">
+                        <h6 class="text-light mb-3">Generated Files</h6>
+                        <ul class="list-group" id="keyGenFiles">
+                            <!-- File download links will be populated dynamically -->
+                        </ul>
+                    </div>
+                    
+                    <!-- Snowflake Command Section (shown only if Snowflake update failed) -->
+                    <div class="mb-4" id="snowflakeCommandSection" style="display: none;">
+                        <h6 class="text-light mb-3">Snowflake Command</h6>
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>Manual Action Required:</strong> Run this command manually in Snowflake to set the public key:
+                        </div>
+                        <div class="input-group">
+                            <textarea class="form-control" id="snowflakeCommandModal" rows="6" readonly style="font-family: monospace; font-size: 0.875rem;"></textarea>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('snowflakeCommandModal')">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer modal-app-bg border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -859,6 +1410,11 @@
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
+                console.log('Form submitted!');
+                console.log('Encrypted checkbox:', encryptedCheckbox.checked);
+                console.log('Create processed checkbox:', document.getElementById('createProcessed').checked);
+                console.log('Username:', document.getElementById('username').value);
+                
                 // Reset validation states
                 passphraseInput.classList.remove('is-invalid');
                 confirmPassphraseInput.classList.remove('is-invalid');
@@ -890,6 +1446,7 @@
                     }
                     
                     if (!isValid) {
+                        console.log('Validation failed, returning early');
                         return;
                     }
                 }
@@ -897,11 +1454,14 @@
                 const formData = {
                     username: document.getElementById('username').value,
                     encrypted: encryptedCheckbox.checked,
-                    passphrase: passphraseInput.value,
+                    passphrase: encryptedCheckbox.checked ? passphraseInput.value : null,
                     create_processed: document.getElementById('createProcessed').checked
                 };
                 
+                console.log('Sending form data:', formData);
+                
                 try {
+                    console.log('Making fetch request to /generate');
                     const response = await fetch('/generate', {
                         method: 'POST',
                         headers: {
@@ -910,10 +1470,13 @@
                         body: JSON.stringify(formData)
                     });
                     
+                    console.log('Response received:', response);
                     const data = await response.json();
+                    console.log('Response data:', data);
                     
                     if (response.ok) {
                         // Display results
+                        console.log('Response was successful, displaying results');
                         resultArea.style.display = 'block';
                         let msgHTML = data.messages.join('<br>');
                         if (formData.encrypted && formData.passphrase) {
@@ -943,9 +1506,11 @@
                         
                         showToast('Key pair generated successfully!', 'success');
                     } else {
+                        console.log('Response was not ok, showing error');
                         showToast(data.error || 'An error occurred', 'error');
                     }
                 } catch (error) {
+                    console.log('Exception caught:', error);
                     showToast('An error occurred while generating the key pair', 'error');
                 }
             });
@@ -1096,8 +1661,16 @@
                     const ct = res.headers.get('content-type') || '';
                     if (ct.includes('application/json')) {
                         const data = await res.json();
-                        if (!data.success) throw new Error(data.error || 'Request failed');
-                        return data.data;
+                        // Check for success property or assume error if not present and error property exists
+                        if (data.success === false || (data.success === undefined && data.error)) {
+                            throw new Error(data.error || 'Request failed');
+                        }
+                        // Return full response for endpoints that don't use data wrapper
+                        if (data.data !== undefined) {
+                            return data.data;
+                        } else {
+                            return data;
+                        }
                     }
                     // fallback text
                     const txt = await res.text();
@@ -1528,15 +2101,17 @@
                             <td><small>${status}</small></td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
-                                    <select class="form-select form-select-sm" id="${dropdownId}" style="width: 140px;">
-                                        <option value="">Select Action</option>
+                                    <button class="btn btn-brand btn-sm" onclick="showUserDetailsModal('${user.name}')" title="View Details">
+                                        <i class="bi bi-info-circle"></i> Details
+                                    </button>
+                                    <select class="form-select form-select-sm" id="${dropdownId}" style="width: 120px;">
+                                        <option value="">Actions</option>
                                         ${user.snowflake_lock ? '<option value="unlock">Unlock User</option>' : ''}
                                         <option value="reset">Reset Password</option>
                                         <option value="unset">Unset Password</option>
-                                        <option value="details">View Details</option>
                                     </select>
                                     <button class="btn btn-primary btn-sm" onclick="executeUserAction('${user.name}', '${dropdownId}')" style="white-space: nowrap;">
-                                        Go!
+                                        Go
                                     </button>
                                 </div>
                             </td>
@@ -1640,8 +2215,6 @@
                     showResetPasswordModal(username);
                 } else if (action === 'unset') {
                     showUnsetPasswordModal(username);
-                } else if (action === 'details') {
-                    showUserDetailsModal(username);
                 }
                 
                 // Reset dropdown
@@ -1665,6 +2238,943 @@
                     filterUsers();
                 }
             });
+
+            /* -------- Roles Management Tab Logic -------- */
+            let rolesData = [];
+            let filteredRolesData = [];
+            let currentRolesPage = 1;
+            const rolesPerPage = 20;
+
+            const roleSearch = document.getElementById('roleSearch');
+            const roleTypeFilter = document.getElementById('roleTypeFilter');
+            const refreshRolesBtn = document.getElementById('refreshRoles');
+            const rolesTableBody = document.getElementById('rolesTableBody');
+            const rolesPagination = document.getElementById('rolesPagination');
+            const rolesCurrentPageInfo = document.getElementById('rolesCurrentPageInfo');
+            const rolesPrevPage = document.getElementById('rolesPrevPage');
+            const rolesNextPage = document.getElementById('rolesNextPage');
+
+            async function loadRolesData() {
+                try {
+                    rolesTableBody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+                    const data = await fetchWithAuth('/roles/detailed');
+                    rolesData = data;
+                    applyRolesFilters();
+                } catch (err) {
+                    showToast('Failed to load roles: ' + err.message, 'error');
+                    rolesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Failed to load roles</td></tr>';
+                }
+            }
+
+            function applyRolesFilters() {
+                const searchTerm = roleSearch.value.toLowerCase();
+                const typeFilter = roleTypeFilter.value;
+
+                filteredRolesData = rolesData.filter(role => {
+                    const matchesSearch = role.name.toLowerCase().includes(searchTerm) ||
+                                        (role.comment && role.comment.toLowerCase().includes(searchTerm)) ||
+                                        (role.owner && role.owner.toLowerCase().includes(searchTerm));
+                    
+                    let matchesType = true;
+                    if (typeFilter === 'system') {
+                        matchesType = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(role.name);
+                    } else if (typeFilter === 'custom') {
+                        matchesType = !['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(role.name);
+                    } else if (typeFilter === 'current') {
+                        matchesType = role.is_current;
+                    } else if (typeFilter === 'inherited') {
+                        matchesType = role.is_inherited;
+                    }
+
+                    return matchesSearch && matchesType;
+                });
+
+                currentRolesPage = 1;
+                displayRolesPage();
+            }
+
+            function displayRolesPage() {
+                const startIndex = (currentRolesPage - 1) * rolesPerPage;
+                const endIndex = startIndex + rolesPerPage;
+                const pageData = filteredRolesData.slice(startIndex, endIndex);
+                const totalPages = Math.ceil(filteredRolesData.length / rolesPerPage);
+
+                if (pageData.length === 0) {
+                    rolesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No roles found</td></tr>';
+                    rolesPagination.style.display = 'none';
+                    return;
+                }
+
+                rolesTableBody.innerHTML = pageData.map(role => {
+                    const roleType = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(role.name) ? 'System' : 'Custom';
+                    const typeClass = roleType === 'System' ? 'badge bg-info' : 'badge bg-secondary';
+                    const statusBadges = [];
+                    
+                    if (role.is_current) statusBadges.push('<span class="badge bg-success me-1">Current</span>');
+                    if (role.is_inherited) statusBadges.push('<span class="badge bg-primary me-1">Inherited</span>');
+                    if (role.is_default) statusBadges.push('<span class="badge bg-warning me-1">Default</span>');
+
+                    return `
+                        <tr>
+                            <td>
+                                <strong class="text-light">${role.name}</strong>
+                                ${statusBadges.length > 0 ? '<br>' + statusBadges.join('') : ''}
+                            </td>
+                            <td><span class="${typeClass}">${roleType}</span></td>
+                            <td class="text-center text-light">${role.assigned_to_users || 0}</td>
+                            <td class="text-center text-light">${role.granted_roles || 0}</td>
+                            <td class="text-light">${role.owner || '-'}</td>
+                            <td class="text-light">${role.created_on ? new Date(role.created_on).toLocaleDateString() : '-'}</td>
+                            <td>
+                                <button class="btn btn-brand btn-sm" onclick="showRoleDetails('${role.name}')">
+                                    <i class="bi bi-info-circle"></i> Details
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // Update pagination
+                rolesCurrentPageInfo.textContent = `Page ${currentRolesPage} of ${totalPages}`;
+                rolesPrevPage.parentElement.classList.toggle('disabled', currentRolesPage === 1);
+                rolesNextPage.parentElement.classList.toggle('disabled', currentRolesPage === totalPages);
+                rolesPagination.style.display = totalPages > 1 ? 'block' : 'none';
+            }
+
+            async function showRoleDetails(roleName) {
+                const modal = new bootstrap.Modal(document.getElementById('roleDetailsModal'));
+                const role = rolesData.find(r => r.name === roleName);
+                
+                if (!role) {
+                    showToast('Role not found', 'error');
+                    return;
+                }
+
+                // Populate basic role info
+                document.getElementById('detailRoleName').textContent = role.name;
+                document.getElementById('detailRoleOwner').textContent = role.owner || 'N/A';
+                document.getElementById('detailRoleCreated').textContent = role.created_on ? new Date(role.created_on).toLocaleString() : 'N/A';
+                document.getElementById('detailRoleUsersAssigned').textContent = role.assigned_to_users || 0;
+                document.getElementById('detailRoleGrantedToRoles').textContent = role.granted_to_roles || 0;
+                document.getElementById('detailRoleGrantedRoles').textContent = role.granted_roles || 0;
+                document.getElementById('detailRoleComment').textContent = role.comment || 'No comment';
+
+                // Show modal
+                modal.show();
+
+                // Load privileges and grants
+                loadRolePrivileges(roleName);
+                loadRoleGrants(roleName);
+            }
+
+            async function loadRolePrivileges(roleName) {
+                const loadingEl = document.getElementById('rolePrivilegesLoading');
+                const tableEl = document.getElementById('rolePrivilegesTable');
+                const emptyEl = document.getElementById('rolePrivilegesEmpty');
+                const bodyEl = document.getElementById('rolePrivilegesBody');
+
+                loadingEl.style.display = 'block';
+                tableEl.style.display = 'none';
+                emptyEl.style.display = 'none';
+
+                try {
+                    const privileges = await fetchWithAuth(`/roles/${encodeURIComponent(roleName)}/privileges`);
+                    
+                    // Store all privileges for filtering
+                    window.currentRolePrivileges = privileges;
+                    
+                    // Load databases and privileges for filtering
+                    await loadPrivilegeDatabases();
+                    loadPrivilegeTypes();
+                    
+                    // Apply current filters and display
+                    applyPrivilegeFilters();
+                } catch (err) {
+                    console.error('Error loading role privileges:', err);
+                    loadingEl.style.display = 'none';
+                    emptyEl.style.display = 'block';
+                    emptyEl.innerHTML = '<p class="text-danger text-center">Failed to load privileges</p>';
+                }
+            }
+
+            function loadPrivilegeTypes() {
+                const privilegeSelect = document.getElementById('privilegeTypeFilter');
+                if (!window.currentRolePrivileges) return;
+                
+                // Get unique privilege types
+                const privilegeTypes = [...new Set(window.currentRolePrivileges.map(priv => priv.privilege))].sort();
+                
+                privilegeSelect.innerHTML = '<option value="">All Privileges</option>' + 
+                    privilegeTypes.map(privilege => `<option value="${privilege}">${privilege}</option>`).join('');
+            }
+
+            function applyPrivilegeFilters() {
+                const dbFilter = document.getElementById('privilegeDbFilter').value;
+                const schemaFilter = document.getElementById('privilegeSchemaFilter').value;
+                const privilegeFilter = document.getElementById('privilegeTypeFilter').value;
+                const loadingEl = document.getElementById('rolePrivilegesLoading');
+                const tableEl = document.getElementById('rolePrivilegesTable');
+                const emptyEl = document.getElementById('rolePrivilegesEmpty');
+                const bodyEl = document.getElementById('rolePrivilegesBody');
+
+                if (!window.currentRolePrivileges) {
+                    return;
+                }
+
+                let filteredPrivileges = window.currentRolePrivileges;
+
+                // Apply privilege type filter
+                if (privilegeFilter) {
+                    filteredPrivileges = filteredPrivileges.filter(priv => priv.privilege === privilegeFilter);
+                }
+
+                // Apply database filter
+                if (dbFilter) {
+                    filteredPrivileges = filteredPrivileges.filter(priv => {
+                        const objectName = priv.name || '';
+                        return objectName.toLowerCase().includes(dbFilter.toLowerCase());
+                    });
+                }
+
+                // Apply schema filter
+                if (schemaFilter && dbFilter) {
+                    filteredPrivileges = filteredPrivileges.filter(priv => {
+                        const objectName = priv.name || '';
+                        return objectName.toLowerCase().includes(`${dbFilter}.${schemaFilter}`.toLowerCase());
+                    });
+                }
+
+                if (filteredPrivileges.length === 0) {
+                    loadingEl.style.display = 'none';
+                    tableEl.style.display = 'none';
+                    emptyEl.style.display = 'block';
+                    return;
+                }
+
+                bodyEl.innerHTML = filteredPrivileges.map(priv => `
+                    <tr>
+                        <td><span class="badge bg-primary">${priv.privilege}</span></td>
+                        <td class="text-light">${priv.granted_on || '-'}</td>
+                        <td class="text-light">${priv.name || '-'}</td>
+                        <td class="text-light">${priv.granted_by || '-'}</td>
+                        <td>
+                            ${priv.grant_option ? 
+                                '<span class="badge bg-success">Yes</span>' : 
+                                '<span class="badge bg-secondary">No</span>'
+                            }
+                        </td>
+                    </tr>
+                `).join('');
+
+                loadingEl.style.display = 'none';
+                tableEl.style.display = 'block';
+                emptyEl.style.display = 'none';
+            }
+
+            async function loadPrivilegeDatabases() {
+                const dbSelect = document.getElementById('privilegeDbFilter');
+                try {
+                    const databases = await fetchWithAuth('/databases');
+                    dbSelect.innerHTML = '<option value="">All Databases</option>' + 
+                        databases.map(db => `<option value="${db}">${db}</option>`).join('');
+                } catch (err) {
+                    console.error('Error loading databases for privilege filter:', err);
+                }
+            }
+
+            async function loadPrivilegeSchemas(database) {
+                const schemaSelect = document.getElementById('privilegeSchemaFilter');
+                schemaSelect.disabled = true;
+                schemaSelect.innerHTML = '<option value="">Loading...</option>';
+                
+                if (!database) {
+                    schemaSelect.innerHTML = '<option value="">All Schemas</option>';
+                    schemaSelect.disabled = true;
+                    return;
+                }
+
+                try {
+                    const schemas = await fetchWithAuth(`/schemas?db=${database}`);
+                    schemaSelect.innerHTML = '<option value="">All Schemas</option>' + 
+                        schemas.map(schema => `<option value="${schema}">${schema}</option>`).join('');
+                    schemaSelect.disabled = false;
+                } catch (err) {
+                    console.error('Error loading schemas for privilege filter:', err);
+                    schemaSelect.innerHTML = '<option value="">Error loading schemas</option>';
+                }
+            }
+
+            async function loadRoleGrants(roleName) {
+                const loadingEl = document.getElementById('roleGrantsLoading');
+                const tableEl = document.getElementById('roleGrantsTable');
+                const emptyEl = document.getElementById('roleGrantsEmpty');
+                const bodyEl = document.getElementById('roleGrantsBody');
+
+                loadingEl.style.display = 'block';
+                tableEl.style.display = 'none';
+                emptyEl.style.display = 'none';
+
+                try {
+                    const grants = await fetchWithAuth(`/roles/${encodeURIComponent(roleName)}/grants`);
+                    
+                    if (grants.length === 0) {
+                        loadingEl.style.display = 'none';
+                        emptyEl.style.display = 'block';
+                        return;
+                    }
+
+                    bodyEl.innerHTML = grants.map(grant => `
+                        <tr>
+                            <td class="text-light"><strong>${grant.grantee_name}</strong></td>
+                            <td>
+                                <span class="badge ${grant.granted_to === 'USER' ? 'bg-info' : 'bg-secondary'}">
+                                    ${grant.granted_to}
+                                </span>
+                            </td>
+                            <td class="text-light">${grant.granted_by || '-'}</td>
+                            <td class="text-light">${grant.created_on ? new Date(grant.created_on).toLocaleDateString() : '-'}</td>
+                        </tr>
+                    `).join('');
+
+                    loadingEl.style.display = 'none';
+                    tableEl.style.display = 'block';
+                } catch (err) {
+                    console.error('Error loading role grants:', err);
+                    loadingEl.style.display = 'none';
+                    emptyEl.style.display = 'block';
+                    emptyEl.innerHTML = '<p class="text-danger text-center">Failed to load grants</p>';
+                }
+            }
+
+            // Event listeners for privilege filters
+            document.getElementById('privilegeDbFilter').addEventListener('change', function() {
+                const selectedDb = this.value;
+                loadPrivilegeSchemas(selectedDb);
+                applyPrivilegeFilters();
+            });
+
+            document.getElementById('privilegeSchemaFilter').addEventListener('change', function() {
+                applyPrivilegeFilters();
+            });
+
+            document.getElementById('privilegeTypeFilter').addEventListener('change', function() {
+                applyPrivilegeFilters();
+            });
+
+            document.getElementById('clearPrivilegeFilters').addEventListener('click', function() {
+                document.getElementById('privilegeDbFilter').value = '';
+                document.getElementById('privilegeSchemaFilter').value = '';
+                document.getElementById('privilegeSchemaFilter').disabled = true;
+                document.getElementById('privilegeTypeFilter').value = '';
+                applyPrivilegeFilters();
+            });
+
+            // Handle collapsible chevron icons
+            document.addEventListener('DOMContentLoaded', function() {
+                const roleGrantsSection = document.getElementById('roleGrantsSection');
+                const rolePrivilegesSection = document.getElementById('rolePrivilegesSection');
+                
+                if (roleGrantsSection) {
+                    roleGrantsSection.addEventListener('show.bs.collapse', function() {
+                        document.getElementById('roleGrantsChevron').className = 'bi bi-chevron-down';
+                    });
+                    roleGrantsSection.addEventListener('hide.bs.collapse', function() {
+                        document.getElementById('roleGrantsChevron').className = 'bi bi-chevron-right';
+                    });
+                }
+                
+                if (rolePrivilegesSection) {
+                    rolePrivilegesSection.addEventListener('show.bs.collapse', function() {
+                        document.getElementById('rolePrivilegesChevron').className = 'bi bi-chevron-down';
+                    });
+                    rolePrivilegesSection.addEventListener('hide.bs.collapse', function() {
+                        document.getElementById('rolePrivilegesChevron').className = 'bi bi-chevron-right';
+                    });
+                }
+            });
+
+            // Event listeners for roles tab
+            roleSearch.addEventListener('input', applyRolesFilters);
+            roleTypeFilter.addEventListener('change', applyRolesFilters);
+            refreshRolesBtn.addEventListener('click', loadRolesData);
+
+            rolesPrevPage.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (currentRolesPage > 1) {
+                    currentRolesPage--;
+                    displayRolesPage();
+                }
+            });
+
+            rolesNextPage.addEventListener('click', (e) => {
+                e.preventDefault();
+                const totalPages = Math.ceil(filteredRolesData.length / rolesPerPage);
+                if (currentRolesPage < totalPages) {
+                    currentRolesPage++;
+                    displayRolesPage();
+                }
+            });
+
+            // Load roles when tab is first shown
+            document.getElementById('roles-tab').addEventListener('shown.bs.tab', () => {
+                if (rolesData.length === 0) {
+                    loadRolesData();
+                }
+            });
+
+            // Make showRoleDetails globally accessible
+            window.showRoleDetails = showRoleDetails;
+
+            // ==================== KEY MANAGEMENT FUNCTIONALITY ====================
+            
+            let keysData = [];
+            let filteredKeysData = [];
+            let currentKeysPage = 1;
+            const keysPerPage = 20;
+            let keysSortField = '';
+            let keysSortDirection = 'asc';
+
+            // DOM elements for keys tab
+            const keySearch = document.getElementById('keySearch');
+            const keyStatusFilter = document.getElementById('keyStatusFilter');
+            const refreshKeysBtn = document.getElementById('refreshKeys');
+            const keysTableBody = document.getElementById('keysTableBody');
+            const keysPagination = document.getElementById('keysPagination');
+            const keysPrevPage = document.getElementById('keysPrevPage');
+            const keysNextPage = document.getElementById('keysNextPage');
+            const keysCurrentPageInfo = document.getElementById('keysCurrentPageInfo');
+
+            async function loadKeysData() {
+                if (!isAuthenticated) return;
+                
+                try {
+                    keysTableBody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
+                    
+                    const response = await fetchWithAuth('/keys/users');
+                    keysData = response;
+                    applyKeysFilters();
+                } catch (err) {
+                    console.error('Error loading keys data:', err);
+                    keysTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Failed to load keys data</td></tr>';
+                }
+            }
+
+            function applyKeysFilters() {
+                const searchTerm = keySearch.value.toLowerCase();
+                const statusFilter = keyStatusFilter.value;
+
+                filteredKeysData = keysData.filter(user => {
+                    const matchesSearch = user.name.toLowerCase().includes(searchTerm) ||
+                                        (user.display_name || '').toLowerCase().includes(searchTerm) ||
+                                        (user.email || '').toLowerCase().includes(searchTerm);
+
+                    let matchesStatus = true;
+                    if (statusFilter) {
+                        switch (statusFilter) {
+                            case 'has_keys':
+                                matchesStatus = user.has_rsa_public_key;
+                                break;
+                            case 'no_keys':
+                                matchesStatus = !user.has_rsa_public_key;
+                                break;
+                        }
+                    }
+
+                    return matchesSearch && matchesStatus;
+                });
+
+                currentKeysPage = 1;
+                displayKeysPage();
+            }
+
+            function displayKeysPage() {
+                const startIndex = (currentKeysPage - 1) * keysPerPage;
+                const endIndex = startIndex + keysPerPage;
+                const pageData = filteredKeysData.slice(startIndex, endIndex);
+
+                if (pageData.length === 0) {
+                    keysTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No users found</td></tr>';
+                    keysPagination.style.display = 'none';
+                    return;
+                }
+
+                keysTableBody.innerHTML = pageData.map(user => {
+                    const statusBadges = [];
+                    if (user.disabled) statusBadges.push('<span class="badge bg-danger">Disabled</span>');
+                    if (user.snowflake_lock) statusBadges.push('<span class="badge bg-warning">Locked</span>');
+                    if (user.must_change_password) statusBadges.push('<span class="badge bg-info">Must Change Password</span>');
+
+                    const rsaKeyStatus = user.has_rsa_public_key ? 
+                        '<span class="badge bg-success"><i class="bi bi-key"></i> Configured</span>' : 
+                        '<span class="badge bg-secondary">Not Set</span>';
+
+                    const dropdownId = `keyAction_${user.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+                    return `
+                        <tr>
+                            <td>
+                                <strong class="text-light">${user.name}</strong>
+                                ${statusBadges.length > 0 ? '<br>' + statusBadges.join('') : ''}
+                            </td>
+                            <td class="text-light">${user.display_name || '-'}</td>
+                            <td>${rsaKeyStatus}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-brand btn-sm" onclick="showUserKeyDetails('${user.name}')" title="View Details">
+                                        <i class="bi bi-info-circle"></i> Details
+                                    </button>
+                                    <select class="form-select form-select-sm" id="${dropdownId}" style="width: 120px;">
+                                        <option value="">Actions</option>
+                                        <option value="set">Set/Rotate Key</option>
+                                        <option value="remove">Remove Key</option>
+                                    </select>
+                                    <button class="btn btn-primary btn-sm" onclick="executeKeyAction('${user.name}', '${dropdownId}')" style="white-space: nowrap;">
+                                        Go
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // Update pagination
+                const totalPages = Math.ceil(filteredKeysData.length / keysPerPage);
+                keysCurrentPageInfo.textContent = `Page ${currentKeysPage} of ${totalPages}`;
+                keysPrevPage.parentElement.classList.toggle('disabled', currentKeysPage === 1);
+                keysNextPage.parentElement.classList.toggle('disabled', currentKeysPage === totalPages);
+                keysPagination.style.display = totalPages > 1 ? 'block' : 'none';
+            }
+
+            async function showUserKeyDetails(username) {
+                const modal = new bootstrap.Modal(document.getElementById('userKeyDetailsModal'));
+                
+                try {
+                    const userDetails = await fetchWithAuth(`/keys/users/${encodeURIComponent(username)}/details`);
+                    
+                    // Populate basic user info
+                    document.getElementById('keyDetailUsername').textContent = userDetails.name || username;
+                    document.getElementById('keyDetailDisplayName').textContent = userDetails.display_name || 'N/A';
+                    document.getElementById('keyDetailEmail').textContent = userDetails.email || 'N/A';
+                    document.getElementById('keyDetailLoginName').textContent = userDetails.login_name || 'N/A';
+                    document.getElementById('keyDetailDefaultRole').textContent = userDetails.default_role || 'N/A';
+                    
+                    // Status
+                    const statusBadges = [];
+                    if (userDetails.disabled) statusBadges.push('<span class="badge bg-danger">Disabled</span>');
+                    if (userDetails.snowflake_lock) statusBadges.push('<span class="badge bg-warning">Locked</span>');
+                    if (userDetails.must_change_password) statusBadges.push('<span class="badge bg-info">Must Change Password</span>');
+                    if (statusBadges.length === 0) statusBadges.push('<span class="badge bg-success">Active</span>');
+                    document.getElementById('keyDetailStatus').innerHTML = statusBadges.join(' ');
+                    
+                    // RSA Keys status (view-only data)
+                    const hasKeys = userDetails.has_rsa_public_key;
+                    document.getElementById('key1StatusText').innerHTML = hasKeys ? 
+                        '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Configured</span>' : 
+                        '<span class="badge bg-secondary">Not Set</span>';
+                    
+                    // Hide key-specific details since we only have view data
+                    document.getElementById('key1Fingerprint').style.display = 'none';
+                    document.getElementById('removeKey1Btn').style.display = 'none';
+                    
+                    // Authentication methods
+                    const authMethods = [];
+                    if (hasKeys) authMethods.push('<span class="badge bg-primary">RSA Keys</span>');
+                    if (userDetails.has_password) authMethods.push('<span class="badge bg-info">Password</span>');
+                    if (userDetails.has_mfa) authMethods.push('<span class="badge bg-success">MFA</span>');
+                    document.getElementById('keyDetailHasKeys').innerHTML = authMethods.join(' ');
+                    
+                    // Add a notice for view-only data
+                    if (userDetails.view_only) {
+                        const statusElement = document.getElementById('keyDetailStatus');
+                        statusElement.innerHTML += '<br><small class="text-info"><i class="bi bi-info-circle"></i> Data from view only - detailed key management available in Snowflake console</small>';
+                    }
+                    
+                    document.getElementById('keyDetailHasPassword').innerHTML = userDetails.has_password ? 
+                        '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>';
+                    document.getElementById('keyDetailHasMFA').innerHTML = userDetails.has_mfa ? 
+                        '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>';
+                    
+                    modal.show();
+                } catch (err) {
+                    console.error('Error loading user key details:', err);
+                    showToast('Failed to load user details', 'error');
+                }
+            }
+
+            function setKeyForUser(username, keyNumber = 1) {
+                // Close any open details modal first to prevent z-index issues
+                const detailsModal = bootstrap.Modal.getInstance(document.getElementById('userKeyDetailsModal'));
+                if (detailsModal) {
+                    detailsModal.hide();
+                }
+                
+                // Small delay to ensure the previous modal is fully closed
+                setTimeout(() => {
+                    const modal = new bootstrap.Modal(document.getElementById('setKeyModal'));
+                    document.getElementById('setKeyUsername').textContent = username;
+                    document.getElementById('keyNumber').value = keyNumber;
+                    document.getElementById('publicKeyContent').value = '';
+                    modal.show();
+                }, 200);
+            }
+
+            function removeKeyForUser(username, keyNumber) {
+                const modal = new bootstrap.Modal(document.getElementById('removeKeyModal'));
+                document.getElementById('removeKeyUsername').textContent = username;
+                document.getElementById('removeKeySlot').textContent = `Key ${keyNumber}`;
+                
+                // Store the key number for the confirmation handler
+                document.getElementById('confirmRemoveKey').setAttribute('data-username', username);
+                document.getElementById('confirmRemoveKey').setAttribute('data-key-number', keyNumber);
+                
+                modal.show();
+            }
+
+            // Event listeners for key management modals
+            document.getElementById('confirmSetKey').addEventListener('click', async function() {
+                const username = document.getElementById('setKeyUsername').textContent;
+                const keyNumber = parseInt(document.getElementById('keyNumber').value);
+                const publicKey = document.getElementById('publicKeyContent').value.trim();
+                
+                if (!publicKey) {
+                    showToast('Please enter a public key', 'error');
+                    return;
+                }
+                
+                try {
+                    const response = await fetchWithAuth(`/keys/users/${encodeURIComponent(username)}/set`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            public_key: publicKey,
+                            key_number: keyNumber
+                        })
+                    });
+                    
+                    if (response.success) {
+                        showToast(response.message, 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('setKeyModal')).hide();
+                        loadKeysData(); // Refresh the table
+                        
+                        // If user key details modal is open, refresh it
+                        const keyDetailsModal = document.getElementById('userKeyDetailsModal');
+                        if (keyDetailsModal.classList.contains('show')) {
+                            showUserKeyDetails(username);
+                        }
+                    } else {
+                        showToast(response.message || 'Failed to set public key', 'error');
+                    }
+                } catch (err) {
+                    console.error('Error setting public key:', err);
+                    showToast('Failed to set public key', 'error');
+                }
+            });
+
+            document.getElementById('confirmRemoveKey').addEventListener('click', async function() {
+                const username = this.getAttribute('data-username');
+                const keyNumber = parseInt(this.getAttribute('data-key-number'));
+                
+                try {
+                    const response = await fetchWithAuth(`/keys/users/${encodeURIComponent(username)}/unset`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            key_number: keyNumber
+                        })
+                    });
+                    
+                    if (response.success) {
+                        showToast(response.message, 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('removeKeyModal')).hide();
+                        loadKeysData(); // Refresh the table
+                        
+                        // If user key details modal is open, refresh it
+                        const keyDetailsModal = document.getElementById('userKeyDetailsModal');
+                        if (keyDetailsModal.classList.contains('show')) {
+                            showUserKeyDetails(username);
+                        }
+                    } else {
+                        showToast(response.message || 'Failed to remove public key', 'error');
+                    }
+                } catch (err) {
+                    console.error('Error removing public key:', err);
+                    showToast('Failed to remove public key', 'error');
+                }
+            });
+
+            // Event listeners for keys tab
+            if (keySearch) keySearch.addEventListener('input', applyKeysFilters);
+            if (keyStatusFilter) keyStatusFilter.addEventListener('change', applyKeysFilters);
+            if (refreshKeysBtn) refreshKeysBtn.addEventListener('click', loadKeysData);
+
+            if (keysPrevPage) {
+                keysPrevPage.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (currentKeysPage > 1) {
+                        currentKeysPage--;
+                        displayKeysPage();
+                    }
+                });
+            }
+
+            if (keysNextPage) {
+                keysNextPage.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const totalPages = Math.ceil(filteredKeysData.length / keysPerPage);
+                    if (currentKeysPage < totalPages) {
+                        currentKeysPage++;
+                        displayKeysPage();
+                    }
+                });
+            }
+
+            // Load keys when tab is first shown
+            const keysTab = document.getElementById('keymgmt-tab');
+            if (keysTab) {
+                keysTab.addEventListener('shown.bs.tab', () => {
+                    if (keysData.length === 0) {
+                        loadKeysData();
+                    }
+                });
+            }
+
+            // Sorting functionality for keys table
+            function sortKeysTable(field) {
+                // Toggle sort direction if clicking same field
+                if (keysSortField === field) {
+                    keysSortDirection = keysSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    keysSortField = field;
+                    keysSortDirection = 'asc';
+                }
+                
+                // Update sort icons
+                document.querySelectorAll('[id^="sort-"]').forEach(icon => {
+                    icon.className = 'bi bi-arrow-down-up';
+                });
+                
+                const sortIcon = document.getElementById(`sort-${field}`);
+                if (sortIcon) {
+                    sortIcon.className = keysSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
+                }
+                
+                // Sort the filtered data
+                filteredKeysData.sort((a, b) => {
+                    let aVal, bVal;
+                    
+                    switch (field) {
+                        case 'name':
+                            aVal = a.name.toLowerCase();
+                            bVal = b.name.toLowerCase();
+                            break;
+                        case 'display_name':
+                            aVal = (a.display_name || '').toLowerCase();
+                            bVal = (b.display_name || '').toLowerCase();
+                            break;
+                        case 'key1':
+                            aVal = a.has_rsa_public_key_1 ? 1 : 0;
+                            bVal = b.has_rsa_public_key_1 ? 1 : 0;
+                            break;
+                        case 'key2':
+                            aVal = a.has_rsa_public_key_2 ? 1 : 0;
+                            bVal = b.has_rsa_public_key_2 ? 1 : 0;
+                            break;
+                        default:
+                            return 0;
+                    }
+                    
+                    if (aVal < bVal) return keysSortDirection === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return keysSortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                });
+                
+                // Reset to first page after sorting
+                currentKeysPage = 1;
+                displayKeysPage();
+            }
+
+            // Make key management functions globally accessible
+            window.showUserKeyDetails = showUserKeyDetails;
+            window.setKeyForUser = setKeyForUser;
+            window.removeKeyForUser = removeKeyForUser;
+            window.sortKeysTable = sortKeysTable;
+
+            // Execute key action from dropdown
+            window.executeKeyAction = function(username, dropdownId) {
+                const dropdown = document.getElementById(dropdownId);
+                const action = dropdown.value;
+                
+                if (!action) {
+                    showToast('Please select an action first', 'warning');
+                    return;
+                }
+                
+                if (action === 'set') {
+                    showSetKeyModal(username);
+                } else if (action === 'remove') {
+                    // Find key number based on user's current keys
+                    const user = keysData.find(u => u.name === username);
+                    if (user && user.has_rsa_public_key) {
+                        removeKeyForUser(username, 1); // Default to key 1 since we only track overall status
+                    } else {
+                        showToast('User has no keys to remove', 'warning');
+                    }
+                }
+                
+                // Reset dropdown
+                dropdown.value = '';
+            };
+
+            // Show set/rotate key modal
+            function showSetKeyModal(username) {
+                const modal = new bootstrap.Modal(document.getElementById('rotateKeyModal'));
+                document.getElementById('rotateKeyUsername').textContent = username;
+                document.getElementById('rotateKeyPassphrase').value = '';
+                document.getElementById('setInSnowflake').checked = true;
+                modal.show();
+            }
+
+            // Toggle passphrase visibility for rotate key modal
+            document.getElementById('toggleRotateKeyPassphrase').addEventListener('click', function() {
+                const passphraseInput = document.getElementById('rotateKeyPassphrase');
+                const icon = this.querySelector('i');
+                
+                if (passphraseInput.type === 'password') {
+                    passphraseInput.type = 'text';
+                    icon.className = 'bi bi-eye-slash';
+                } else {
+                    passphraseInput.type = 'password';
+                    icon.className = 'bi bi-eye';
+                }
+            });
+
+            // Handle rotate key confirmation
+            document.getElementById('confirmRotateKey').addEventListener('click', async function() {
+                const username = document.getElementById('rotateKeyUsername').textContent;
+                const passphrase = document.getElementById('rotateKeyPassphrase').value;
+                const setInSnowflake = document.getElementById('setInSnowflake').checked;
+                
+                if (!passphrase.trim()) {
+                    showToast('Please enter a passphrase', 'error');
+                    return;
+                }
+                
+                try {
+                    // Disable button and show loading
+                    this.disabled = true;
+                    this.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Generating...';
+                    
+                    const response = await fetchWithAuth('/keys/generate-and-rotate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: username,
+                            passphrase: passphrase,
+                            set_in_snowflake: setInSnowflake
+                        })
+                    });
+                    
+                    // Hide rotate modal
+                    bootstrap.Modal.getInstance(document.getElementById('rotateKeyModal')).hide();
+                    
+                    // Show results modal
+                    showKeyGenResults(response);
+                    
+                    // Refresh key management table
+                    loadKeysData();
+                    
+                } catch (err) {
+                    console.error('Error rotating key:', err);
+                    showToast('Failed to generate/rotate key: ' + err.message, 'error');
+                } finally {
+                    // Reset button
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Generate & Set Key';
+                }
+            });
+
+            // Show key generation results modal
+            function showKeyGenResults(response) {
+                const resultsModal = new bootstrap.Modal(document.getElementById('keyGenResultsModal'));
+                const resultsDiv = document.getElementById('keyGenResults');
+                const filesDiv = document.getElementById('keyGenFiles');
+                const commandSection = document.getElementById('snowflakeCommandSection');
+                const commandTextarea = document.getElementById('snowflakeCommandModal');
+                
+                // Populate results
+                let resultsHtml = '';
+                if (response.success) {
+                    resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle" style="color: #28a745;" ></i><span class="ms-2">Encrypted private key generated</span></div>';
+                    resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle" style="color: #28a745;"></i><span class="ms-2">Public key generated</span></div>';
+                    
+                    if (response.snowflake_success) {
+                        resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle" style="color: #28a745;"></i><span class="ms-2">Public key set in Snowflake</span></div>';
+                    } else if (response.snowflake_attempted) {
+                        resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-exclamation-triangle" style="color: #ff8c00;"></i><span class="ms-2">Snowflake update failed</span></div>';
+                    }
+                    
+                    // Show passphrase
+                    resultsHtml += `<div class="d-flex align-items-center mt-3"><i class="bi bi-exclamation-triangle" style="color: #ff8c00;"></i><span class="ms-2"><strong>Passphrase: ${response.passphrase}</strong> (store safely)</span></div>`;
+                } else {
+                    resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-x-circle text-danger"></i><span class="ms-2">Key generation failed</span></div>';
+                }
+                resultsDiv.innerHTML = resultsHtml;
+                
+                // Populate files
+                let filesHtml = '';
+                if (response.files && response.files.length > 0) {
+                    response.files.forEach(file => {
+                        const icon = file.filename.includes('private') ? 'bi-file-lock' : 'bi-file-text';
+                        filesHtml += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="bi ${icon} me-2"></i>${file.label}: ${file.filename}</span>
+                                <a href="/download/${response.username}/${file.filename}" class="download-btn">
+                                    <i class="bi bi-download"></i> Download
+                                </a>
+                            </li>
+                        `;
+                    });
+                } else {
+                    filesHtml = '<li class="list-group-item text-muted">No files generated</li>';
+                }
+                filesDiv.innerHTML = filesHtml;
+                
+                // Show Snowflake command if needed
+                console.log('Snowflake command debug:', {
+                    attempted: response.snowflake_attempted,
+                    success: response.snowflake_success,
+                    command: response.snowflake_command,
+                    command_length: response.snowflake_command ? response.snowflake_command.length : 0,
+                    command_type: typeof response.snowflake_command,
+                    error: response.snowflake_error
+                });
+                
+                if (response.snowflake_attempted && !response.snowflake_success && response.snowflake_command) {
+                    console.log('Setting command textarea value:', response.snowflake_command);
+                    commandTextarea.value = response.snowflake_command;
+                    commandSection.style.display = 'block';
+                    console.log('✓ Showing Snowflake command section');
+                    console.log('Textarea value after setting:', commandTextarea.value);
+                } else {
+                    commandSection.style.display = 'none';
+                    console.log('✗ Hiding Snowflake command section', {
+                        attempted: response.snowflake_attempted,
+                        success: response.snowflake_success,
+                        hasCommand: !!response.snowflake_command
+                    });
+                }
+                
+                resultsModal.show();
+            }
+
+            // Copy to clipboard function
+            function copyToClipboard(elementId) {
+                const element = document.getElementById(elementId);
+                element.select();
+                element.setSelectionRange(0, 99999);
+                document.execCommand('copy');
+                showToast('Copied to clipboard', 'success');
+            }
         });
     </script>
 </body>

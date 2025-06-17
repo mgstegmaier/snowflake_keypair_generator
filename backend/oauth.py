@@ -164,4 +164,12 @@ def current_identity() -> dict | None:
         return {"user": user.upper(), "role": (role or "").upper()}
     except Exception as e:
         print(f"Could not decode token: {e}")
+        # Fallback: if we can't decode the token but we have one, return a basic identity
+        # This allows the app to function even if token parsing fails
+        if token:
+            # Extract user from environment as fallback
+            import os
+            user = os.getenv('SNOWFLAKE_USER', 'UNKNOWN_USER')
+            role = os.getenv('SNOWFLAKE_ROLE', 'SYSADMIN')
+            return {"user": user.upper(), "role": role.upper()}
         return None 

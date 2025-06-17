@@ -125,6 +125,15 @@ DESC USER {username};"""
         results['success'] = True
         results['session_dir'] = session_dir
         
+        # Also create files array for consistency with rotate endpoint
+        files_array = [
+            {'filename': f"{username}_rsa_key.p8", 'label': 'private_key'},
+            {'filename': f"{username}_rsa_key.pub", 'label': 'public_key'}
+        ]
+        if create_processed:
+            files_array.append({'filename': f"{username}_rsa_key_processed.p8", 'label': 'processed_key'})
+        results['files_array'] = files_array
+        
     except Exception as e:
         results['messages'].append(f"Error: {str(e)}")
     
@@ -353,6 +362,39 @@ def list_roles():
     except Exception as e:
         return error_response(e)
 
+@app.route('/roles/detailed')
+@require_oauth
+def list_roles_detailed():
+    """Get detailed role information for the roles table."""
+    ensure_sf_conn()
+    try:
+        roles = sfc.client.list_roles_detailed()
+        return jsonify({"success": True, "data": roles})
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/roles/<role_name>/privileges')
+@require_oauth
+def get_role_privileges(role_name):
+    """Get privileges granted to a specific role."""
+    ensure_sf_conn()
+    try:
+        privileges = sfc.client.get_role_privileges(role_name)
+        return jsonify({"success": True, "data": privileges})
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/roles/<role_name>/grants')
+@require_oauth
+def get_role_grants(role_name):
+    """Get users and roles that have been granted a specific role."""
+    ensure_sf_conn()
+    try:
+        grants = sfc.client.get_role_grants(role_name)
+        return jsonify({"success": True, "data": grants})
+    except Exception as e:
+        return error_response(e)
+
 @app.route('/grant_permissions', methods=['POST'])
 @require_oauth
 def grant_permissions():
@@ -414,6 +456,94 @@ def list_warehouses():
         whs = sfc.client.list_warehouses()
         return jsonify({"success": True, "data": whs})
     except Exception as e:
+        return error_response(e)
+
+@app.route('/keys/users')
+@require_oauth
+def list_users_with_keys():
+    """List all users with enhanced key information for key management."""
+    ensure_sf_conn()
+    try:
+        users = sfc.client.list_users_with_keys_optimized()
+        return jsonify({"success": True, "data": users})
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/keys/users/<username>/details')
+@require_oauth
+def get_user_key_details(username):
+    """Get detailed key information for a specific user."""
+    ensure_sf_conn()
+    try:
+        details = sfc.client.get_user_details(username)
+        return jsonify({"success": True, "data": details})
+    except Exception as e:
+        error_msg = str(e)
+        if "does not exist" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': f'User "{username}" does not exist'
+            }), 404
+        return error_response(e)
+
+@app.route('/keys/users/<username>/set', methods=['POST'])
+@require_oauth
+def set_user_public_key(username):
+    """Set or update RSA public key for a user."""
+    ensure_sf_conn()
+    try:
+        payload = request.json or {}
+        public_key = payload.get('public_key')
+        key_number = payload.get('key_number', 1)
+        
+        if not public_key:
+            return jsonify({'success': False, 'error': 'Public key is required'}), 400
+        
+        if key_number not in [1, 2]:
+            return jsonify({'success': False, 'error': 'Key number must be 1 or 2'}), 400
+        
+        result = sfc.client.set_user_public_key(username, public_key, key_number)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        error_msg = str(e)
+        if "does not exist" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': f'User "{username}" does not exist'
+            }), 404
+        return error_response(e)
+
+@app.route('/keys/users/<username>/unset', methods=['POST'])
+@require_oauth
+def unset_user_public_key(username):
+    """Remove RSA public key from a user."""
+    ensure_sf_conn()
+    try:
+        payload = request.json or {}
+        key_number = payload.get('key_number', 1)
+        
+        if key_number not in [1, 2]:
+            return jsonify({'success': False, 'error': 'Key number must be 1 or 2'}), 400
+        
+        result = sfc.client.unset_user_public_key(username, key_number)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        error_msg = str(e)
+        if "does not exist" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': f'User "{username}" does not exist'
+            }), 404
         return error_response(e)
 
 @app.route('/debug/procedures')
@@ -534,6 +664,130 @@ def unset_user_password(username):
                 'error': f'User "{username}" does not exist'
             }), 404
         
+        return error_response(e)
+
+@app.route('/debug/clear-cache', methods=['POST'])
+@require_oauth
+def clear_cache():
+    """Clear the user cache to force fresh data load."""
+    ensure_sf_conn()
+    try:
+        sfc.client.clear_users_cache()
+        return jsonify({"success": True, "message": "User cache cleared"})
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/keys/generate-and-rotate', methods=['POST'])
+@require_oauth
+def generate_and_rotate_key():
+    """Generate encrypted RSA key pair and optionally set in Snowflake."""
+    try:
+        payload = request.json or {}
+        username = payload.get('username')
+        passphrase = payload.get('passphrase')
+        set_in_snowflake = payload.get('set_in_snowflake', False)
+        
+        if not username:
+            return jsonify({'success': False, 'error': 'Username is required'}), 400
+        if not passphrase:
+            return jsonify({'success': False, 'error': 'Passphrase is required'}), 400
+        
+        # Generate the key pair using the existing function
+        result = generate_key_pair(username, encrypted=True, passphrase=passphrase, create_processed=True)
+        
+        if not result.get('success', False):
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Key generation failed')
+            }), 400
+        
+        # Convert files dict to array format for frontend
+        files_array = []
+        if 'files' in result and isinstance(result['files'], dict):
+            for file_type, filename in result['files'].items():
+                files_array.append({
+                    'filename': filename,
+                    'label': file_type
+                })
+        
+        response_data = {
+            'success': True,
+            'username': username,
+            'passphrase': passphrase,
+            'files': files_array,
+            'snowflake_attempted': set_in_snowflake,
+            'snowflake_success': False,
+            'snowflake_command': None,
+            'snowflake_error': None
+        }
+        
+        # Optionally set in Snowflake
+        if set_in_snowflake:
+            try:
+                print(f"Attempting to set key in Snowflake for user: {username}")
+                ensure_sf_conn()
+                
+                # Get the public key content from the generated file
+                public_key_filename = result['files'].get('public_key')
+                print(f"Public key filename: {public_key_filename}")
+                
+                if public_key_filename:
+                    public_key_path = os.path.join(app.config['UPLOAD_FOLDER'], username, public_key_filename)
+                    print(f"Looking for public key at: {public_key_path}")
+                    
+                    if os.path.exists(public_key_path):
+                        with open(public_key_path, 'r') as f:
+                            public_key_content = f.read().strip()
+                        print(f"Successfully read public key content ({len(public_key_content)} chars)")
+                        
+                        # Set the key in Snowflake
+                        print(f"Calling set_user_public_key for {username}")
+                        sf_result = sfc.client.set_user_public_key(username, public_key_content, 1)
+                        print(f"Snowflake set_user_public_key result: {sf_result}")
+                        
+                        if sf_result.get('success'):
+                            response_data['snowflake_success'] = True
+                            print("✓ Successfully set public key in Snowflake")
+                        else:
+                            # Generate manual command for fallback
+                            response_data['snowflake_command'] = f"ALTER USER {username} SET RSA_PUBLIC_KEY='{public_key_content}';"
+                            # Extract error from either 'error' or 'message' field
+                            error_msg = sf_result.get('error') or sf_result.get('message', 'Unknown error')
+                            response_data['snowflake_error'] = error_msg
+                            print(f"✗ Failed to set public key in Snowflake: {error_msg}")
+                    else:
+                        # Still provide a fallback command even if file not found
+                        response_data['snowflake_command'] = f"-- Could not find generated public key file: {public_key_filename}\n-- Please download the public key file and run:\n-- ALTER USER {username} SET RSA_PUBLIC_KEY='<public_key_content>';"
+                        response_data['snowflake_error'] = 'Public key file not found'
+                        print(f"✗ Public key file not found at: {public_key_path}")
+                else:
+                    response_data['snowflake_command'] = f"-- No public key file generated for {username}\n-- Please ensure key generation completed successfully"
+                    response_data['snowflake_error'] = 'No public key in generation result'
+                    print("✗ No public key file in generation result")
+                    
+            except Exception as sf_error:
+                print(f"Exception while setting key in Snowflake: {str(sf_error)}")
+                # Generate manual command for fallback
+                public_key_content = "-- Replace with actual public key content --"
+                try:
+                    # Try to get the public key content if available
+                    public_key_filename = result['files'].get('public_key')
+                    if public_key_filename:
+                        public_key_path = os.path.join(app.config['UPLOAD_FOLDER'], username, public_key_filename)
+                        if os.path.exists(public_key_path):
+                            with open(public_key_path, 'r') as f:
+                                public_key_content = f.read().strip()
+                except Exception:
+                    pass
+                
+                response_data['snowflake_command'] = f"ALTER USER {username} SET RSA_PUBLIC_KEY='{public_key_content}';"
+                response_data['snowflake_error'] = str(sf_error)
+                print(f"✗ Generated fallback command due to exception")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        print(f"Error in generate_and_rotate_key: {str(e)}")
         return error_response(e)
 
 # helper to ensure connection
