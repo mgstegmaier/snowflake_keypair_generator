@@ -1,11 +1,8 @@
-from flask import Flask, render_template, request, jsonify, send_file, send_from_directory,session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, send_from_directory,session, redirect, url_for
 import backend.oauth as oauth
 import os
 import subprocess
 import tempfile
-from werkzeug.utils import secure_filename
-import json
-from pathlib import Path
 import shutil
 import webbrowser
 from threading import Timer
@@ -782,7 +779,7 @@ def generate_and_rotate_key():
                 
                 response_data['snowflake_command'] = f"ALTER USER {username} SET RSA_PUBLIC_KEY='{public_key_content}';"
                 response_data['snowflake_error'] = str(sf_error)
-                print(f"✗ Generated fallback command due to exception")
+                print("✗ Generated fallback command due to exception")
         
         return jsonify(response_data)
         

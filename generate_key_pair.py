@@ -3,7 +3,6 @@
 import os
 import subprocess
 import getpass
-import re
 import tempfile
 
 def run_command(command):

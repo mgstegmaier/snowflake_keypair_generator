@@ -1,16 +1,15 @@
-import os
 import threading
 import time
 from contextlib import contextmanager
 
 import pytest
-from flask import Flask
+
 # Skip entire module if Playwright missing
 playwright_mod = pytest.importorskip('playwright')
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright  # noqa: E402
 
 # Import our Flask app
-import app as flask_app
+import app as flask_app  # noqa: E402
 
 
 @contextmanager

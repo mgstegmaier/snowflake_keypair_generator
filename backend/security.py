@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
 
 INACTIVITY_TIMEOUT_SECONDS = 15 * 60  # 15 minutes
 

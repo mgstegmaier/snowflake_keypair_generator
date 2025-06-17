@@ -1,6 +1,5 @@
 import json
 from importlib import reload
-from types import SimpleNamespace
 
 import pytest
 from backend import snowflake_client as sfc
