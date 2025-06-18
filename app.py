@@ -17,8 +17,10 @@ from snowflake.connector import errors as sf_errors
 load_dotenv()
 
 app = Flask(__name__)
-# Use a fixed secret key for development
-app.config['SECRET_KEY'] = 'dev-secret-key-123'  # In production, use a secure random key
+# Use environment variable for secret key
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') or os.getenv('SECRET_KEY', 'dev-secret-key-123')
+if app.config['SECRET_KEY'] == 'dev-secret-key-123':
+    logger.warning('Using default development secret key. Set FLASK_SECRET_KEY environment variable for production.')
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
