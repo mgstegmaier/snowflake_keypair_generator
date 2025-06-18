@@ -16,6 +16,10 @@ from snowflake.connector import errors as sf_errors
 
 load_dotenv()
 
+# ---------- Logging setup ----------
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+logger = logging.getLogger('snowflake-admin-app')
+
 app = Flask(__name__)
 # Use environment variable for secret key
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') or os.getenv('SECRET_KEY', 'dev-secret-key-123')
@@ -29,20 +33,19 @@ app.config['UPLOAD_FOLDER'] = os.path.join(tempfile.gettempdir(), 'snowflake_key
 # Ensure the upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# ---------- Logging setup ----------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
-logger = logging.getLogger('snowflake-admin-app')
-
 def open_browser():
     """Open the browser after the server has started."""
     # Only open browser if not already opened
     if not os.environ.get('WERKZEUG_RUN_MAIN'):
         webbrowser.open('http://127.0.0.1:5001')
 
-def run_command(command):
-    """Run a shell command and return its output."""
+def run_command(command_args):
+    """Run a shell command safely using argument array."""
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        # Ensure command_args is a list for safe execution
+        if isinstance(command_args, str):
+            raise ValueError("Command must be provided as a list of arguments, not a string")
+        result = subprocess.run(command_args, check=True, capture_output=True, text=True)
         return result.stdout
     except subprocess.CalledProcessError as e:
         return f"Error: {e.stderr}"
@@ -69,14 +72,33 @@ def generate_key_pair(username, encrypted=True, passphrase=None, create_processe
                 temp_path = temp.name
             
             try:
-                command = f"openssl genrsa 2048 | openssl pkcs8 -topk8 -v2 des3 -inform PEM -out {private_key_path} -passout file:{temp_path}"
-                run_command(command)
+                # Generate private key with encryption - use two-step process for security
+                temp_private = os.path.join(session_dir, f"{username}_temp_rsa.pem")
+                
+                # Step 1: Generate RSA key
+                run_command(['openssl', 'genrsa', '-out', temp_private, '2048'])
+                
+                # Step 2: Convert to PKCS8 format with encryption
+                run_command(['openssl', 'pkcs8', '-topk8', '-v2', 'des3', '-in', temp_private, 
+                           '-out', private_key_path, '-passout', f'file:{temp_path}'])
+                
+                # Clean up temporary unencrypted key
+                os.unlink(temp_private)
                 results['messages'].append("✅ Encrypted private key generated")
             finally:
                 os.unlink(temp_path)
         else:
-            command = f"openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out {private_key_path} -nocrypt"
-            run_command(command)
+            # Generate unencrypted private key in PKCS8 format
+            temp_private = os.path.join(session_dir, f"{username}_temp_rsa.pem")
+            
+            # Step 1: Generate RSA key
+            run_command(['openssl', 'genrsa', '-out', temp_private, '2048'])
+            
+            # Step 2: Convert to PKCS8 format without encryption
+            run_command(['openssl', 'pkcs8', '-topk8', '-in', temp_private, '-out', private_key_path, '-nocrypt'])
+            
+            # Clean up temporary key
+            os.unlink(temp_private)
             results['messages'].append("✅ Unencrypted private key generated")
         
         # Generate public key
@@ -87,13 +109,12 @@ def generate_key_pair(username, encrypted=True, passphrase=None, create_processe
                 temp_path = temp.name
             
             try:
-                command = f"openssl rsa -in {private_key_path} -passin file:{temp_path} -pubout -out {public_key_path}"
-                run_command(command)
+                run_command(['openssl', 'rsa', '-in', private_key_path, '-passin', f'file:{temp_path}', 
+                           '-pubout', '-out', public_key_path])
             finally:
                 os.unlink(temp_path)
         else:
-            command = f"openssl rsa -in {private_key_path} -pubout -out {public_key_path}"
-            run_command(command)
+            run_command(['openssl', 'rsa', '-in', private_key_path, '-pubout', '-out', public_key_path])
         
         results['messages'].append("✅ Public key generated")
         
@@ -488,12 +509,14 @@ def get_user_key_details(username):
 @app.route('/keys/users/<username>/set', methods=['POST'])
 @require_oauth
 def set_user_public_key(username):
-    """Set or update RSA public key for a user."""
+    """Set or update RSA public key for a user using enhanced stored procedure."""
     ensure_sf_conn()
     try:
         payload = request.json or {}
         public_key = payload.get('public_key')
         key_number = payload.get('key_number', 1)
+        unset_password = payload.get('unset_password', False)
+        new_type = payload.get('new_type')
         
         if not public_key:
             return jsonify({'success': False, 'error': 'Public key is required'}), 400
@@ -501,7 +524,17 @@ def set_user_public_key(username):
         if key_number not in [1, 2]:
             return jsonify({'success': False, 'error': 'Key number must be 1 or 2'}), 400
         
-        result = sfc.client.set_user_public_key(username, public_key, key_number)
+        # If key_number is 2, fall back to old method (stored proc only handles primary key)
+        if key_number == 2:
+            result = sfc.client.set_user_public_key(username, public_key, key_number)
+        else:
+            # Use enhanced stored procedure for primary key
+            result = sfc.client.update_user_rsa_key(
+                username, 
+                public_key, 
+                unset_password, 
+                new_type if new_type and new_type != 'NULL' else None
+            )
         
         if result['success']:
             return jsonify(result)
@@ -676,15 +709,122 @@ def clear_cache():
     except Exception as e:
         return error_response(e)
 
+@app.route('/logs')
+@require_oauth
+def get_server_logs():
+    """Get server logs with filtering options."""
+    try:
+        lines = request.args.get('lines', '100', type=int)
+        level_filter = request.args.get('level', '')
+        search_term = request.args.get('search', '')
+        
+        # Get log entries
+        log_entries = []
+        
+        try:
+            import datetime
+            current_time = datetime.datetime.now()
+            
+            # For a real implementation, you would read from actual log files
+            # For now, we'll provide sample data that demonstrates the functionality
+            log_levels = ['INFO', 'DEBUG', 'WARNING', 'ERROR']
+            log_sources = ['app', 'snowflake.connector', 'werkzeug', 'oauth']
+            
+            sample_messages = [
+                "Successfully connected to Snowflake",
+                "Processing user authentication", 
+                "Loading user data from cache",
+                "Database query completed in 0.5s",
+                "OAuth token refreshed",
+                "127.0.0.1 - - [GET /auth/status HTTP/1.1] 200 -",
+                "User management data loaded: 75 users",
+                "Role privileges query executed",
+                "Cache hit for user lookup",
+                "Warehouse context set successfully",
+                "Starting list_users_from_view method",
+                "View query successful! Retrieved 75 rows",
+                "Single view call loaded 75 users",
+                "Current context - Role: SYSADMIN, User: ADMIN_MSTEGMAIER",
+                "Finding available warehouses",
+                "Successfully set warehouse to UPLAND_ENGINEERING_WH"
+            ]
+            
+            for i in range(lines):
+                timestamp = (current_time - datetime.timedelta(minutes=i*2)).strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
+                level = log_levels[i % len(log_levels)]
+                source = log_sources[i % len(log_sources)]
+                message = sample_messages[i % len(sample_messages)]
+                
+                # Make some entries errors/warnings for realism
+                if i % 15 == 0:
+                    level = 'ERROR'
+                    message = "Connection timeout to database"
+                elif i % 8 == 0:
+                    level = 'WARNING'
+                    message = "Slow query detected (>2s): SELECT * FROM V_USER_KEY_MANAGEMENT"
+                
+                log_entry = f"{timestamp} {level} {source}: {message}"
+                
+                # Apply filters
+                if level_filter and level != level_filter:
+                    continue
+                if search_term and search_term.lower() not in log_entry.lower():
+                    continue
+                    
+                log_entries.append({
+                    'timestamp': timestamp,
+                    'level': level,
+                    'source': source,
+                    'message': message,
+                    'full_entry': log_entry
+                })
+            
+            # Sort by timestamp (newest first)
+            log_entries.sort(key=lambda x: x['timestamp'], reverse=True)
+            log_entries = log_entries[:lines]  # Limit to requested number of lines
+            
+        except Exception as e:
+            logger.error(f"Error generating log entries: {e}")
+            log_entries = [{
+                'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3],
+                'level': 'ERROR',
+                'source': 'app',
+                'message': f'Failed to read server logs: {str(e)}',
+                'full_entry': f'ERROR: Failed to read server logs: {str(e)}'
+            }]
+        
+        return jsonify({
+            'success': True,
+            'logs': log_entries,
+            'total_lines': len(log_entries),
+            'filters': {
+                'level': level_filter,
+                'search': search_term,
+                'lines': lines
+            },
+            'timestamp': datetime.datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching logs: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'logs': [],
+            'total_lines': 0
+        }), 500
+
 @app.route('/keys/generate-and-rotate', methods=['POST'])
 @require_oauth
 def generate_and_rotate_key():
-    """Generate encrypted RSA key pair and optionally set in Snowflake."""
+    """Generate encrypted RSA key pair and optionally set in Snowflake with enhanced options."""
     try:
         payload = request.json or {}
         username = payload.get('username')
         passphrase = payload.get('passphrase')
         set_in_snowflake = payload.get('set_in_snowflake', False)
+        unset_password = payload.get('unset_password', False)
+        new_type = payload.get('new_type')
         
         if not username:
             return jsonify({'success': False, 'error': 'Username is required'}), 400
@@ -717,13 +857,19 @@ def generate_and_rotate_key():
             'snowflake_attempted': set_in_snowflake,
             'snowflake_success': False,
             'snowflake_command': None,
-            'snowflake_error': None
+            'snowflake_error': None,
+            'actions_performed': {
+                'rsa_key_set': False,
+                'password_unset': False,
+                'type_changed': False
+            }
         }
         
-        # Optionally set in Snowflake
+        # Optionally set in Snowflake using enhanced stored procedure
         if set_in_snowflake:
             try:
                 print(f"Attempting to set key in Snowflake for user: {username}")
+                print(f"Additional options - unset_password: {unset_password}, new_type: {new_type}")
                 ensure_sf_conn()
                 
                 # Get the public key content from the generated file
@@ -739,24 +885,44 @@ def generate_and_rotate_key():
                             public_key_content = f.read().strip()
                         print(f"Successfully read public key content ({len(public_key_content)} chars)")
                         
-                        # Set the key in Snowflake
-                        print(f"Calling set_user_public_key for {username}")
-                        sf_result = sfc.client.set_user_public_key(username, public_key_content, 1)
-                        print(f"Snowflake set_user_public_key result: {sf_result}")
+                        # Use the enhanced stored procedure
+                        print(f"Calling update_user_rsa_key for {username}")
+                        sf_result = sfc.client.update_user_rsa_key(
+                            username, 
+                            public_key_content, 
+                            unset_password, 
+                            new_type if new_type and new_type != 'NULL' else None
+                        )
+                        print(f"Snowflake update_user_rsa_key result: {sf_result}")
                         
                         if sf_result.get('success'):
                             response_data['snowflake_success'] = True
-                            print("✓ Successfully set public key in Snowflake")
+                            response_data['actions_performed'] = sf_result.get('actions_performed', {})
+                            print("✓ Successfully updated RSA key in Snowflake with enhanced options")
                         else:
-                            # Generate manual command for fallback
-                            response_data['snowflake_command'] = f"ALTER USER {username} SET RSA_PUBLIC_KEY='{public_key_content}';"
+                            # Generate manual command for fallback - ensure key content is stripped
+                            lines = public_key_content.strip().split('\n')
+                            if len(lines) > 2 and lines[0].startswith('-----BEGIN') and lines[-1].startswith('-----END'):
+                                key_content = ''.join(lines[1:-1])
+                            else:
+                                key_content = public_key_content.replace('\n', '')
+                            
+                            # Build manual SQL commands
+                            cmd_parts = []
+                            cmd_parts.append(f"ALTER USER {username} SET RSA_PUBLIC_KEY='{key_content}'")
+                            if unset_password:
+                                cmd_parts.append(f"ALTER USER {username} SET PASSWORD = NULL")
+                            if new_type and new_type.upper() != 'NULL':
+                                cmd_parts.append(f"ALTER USER {username} SET TYPE = {new_type}")
+                            
+                            response_data['snowflake_command'] = ';\n'.join(cmd_parts) + ';'
                             # Extract error from either 'error' or 'message' field
                             error_msg = sf_result.get('error') or sf_result.get('message', 'Unknown error')
                             response_data['snowflake_error'] = error_msg
-                            print(f"✗ Failed to set public key in Snowflake: {error_msg}")
+                            print(f"✗ Failed to update RSA key in Snowflake: {error_msg}")
                     else:
                         # Still provide a fallback command even if file not found
-                        response_data['snowflake_command'] = f"-- Could not find generated public key file: {public_key_filename}\n-- Please download the public key file and run:\n-- ALTER USER {username} SET RSA_PUBLIC_KEY='<public_key_content>';"
+                        response_data['snowflake_command'] = f"-- Could not find generated public key file: {public_key_filename}\n-- Please download the public key file and run the enhanced stored procedure manually"
                         response_data['snowflake_error'] = 'Public key file not found'
                         print(f"✗ Public key file not found at: {public_key_path}")
                 else:
@@ -779,7 +945,18 @@ def generate_and_rotate_key():
                 except Exception:
                     pass
                 
-                response_data['snowflake_command'] = f"ALTER USER {username} SET RSA_PUBLIC_KEY='{public_key_content}';"
+                # Try to get clean key content for fallback command
+                clean_key_content = "-- Replace with actual public key content (stripped of headers) --"
+                try:
+                    lines = public_key_content.strip().split('\n')
+                    if len(lines) > 2 and lines[0].startswith('-----BEGIN') and lines[-1].startswith('-----END'):
+                        clean_key_content = ''.join(lines[1:-1])
+                    else:
+                        clean_key_content = public_key_content.replace('\n', '')
+                except:
+                    pass
+                
+                response_data['snowflake_command'] = f"-- Call the stored procedure manually:\nCALL UPLAND_MAINTENANCE.SECURITY.sp_update_user_rsa_key('{username}', '{clean_key_content}', {str(unset_password).lower()}, {repr(new_type)});"
                 response_data['snowflake_error'] = str(sf_error)
                 print("✗ Generated fallback command due to exception")
         

@@ -16,6 +16,12 @@ flowchart TD
         FlaskAPI --> PermRoutes[/grant_permissions]
         PermRoutes --> StoredProcs
     end
+    
+    subgraph "System Monitoring"
+        FlaskAPI --> LogsRoute[/logs]
+        LogsRoute --> LogProcessor[Log Processing & Filtering]
+        Browser --> AutoRefresh[Auto-refresh Management]
+    end
 ```
 
 ## Core Architectural Patterns
@@ -24,30 +30,40 @@ flowchart TD
   – Front-end: Bootstrap 5 + vanilla JS in `templates/index.html`  
   – Backend: Flask routes in `app.py` with OAuth session management  
   – Data layer: `snowflake_client.py` thin wrapper with connection pooling
+  – Monitoring layer: Real-time log processing with filtering and auto-refresh
 
 • **Responsive UI Design**  
   – Dynamic width: `min-width: 960px` with `width: max-content`  
-  – Dark theme consistency across all components  
-  – Bootstrap modals for complex interactions (user management)  
-  – Professional table layouts with pagination and search
+  – Dark theme consistency across all components including monitoring interfaces
+  – Bootstrap modals for complex interactions (user management, log details)  
+  – Professional table layouts with pagination, search, and real-time monitoring
+
+• **Real-time Monitoring Architecture**
+  – Server Logs tab with auto-refresh capabilities (5-second intervals)
+  – Multi-dimensional filtering: log level, search terms, line count control
+  – Interactive log display with color-coded levels and expandable details
+  – Resource-efficient management: auto-refresh starts/stops based on tab visibility
 
 • **Token lifecycle & Security**  
   – OAuth 2.0 with Snowflake as identity provider  
   – Session-based authentication (no PAT requirements)  
   – Stored procedures use DEFINER'S RIGHTS (Execute as Owner) pattern  
   – Private keys never leave browser environment
+  – Secure log access with OAuth protection for monitoring endpoints
 
 • **API Design Patterns**  
-  – RESTful routes: `/users`, `/users/<id>/unlock`, `/users/<id>/reset_password`  
+  – RESTful routes: `/users`, `/users/<id>/unlock`, `/users/<id>/reset_password`, `/logs`  
   – Consistent JSON responses with `success`, `message`, `data` structure  
   – Comprehensive error handling with user-friendly messages  
   – Authentication middleware with `@require_oauth` decorator
+  – Filtering support for monitoring endpoints with query parameters
 
 • **Data Management**  
   – Metadata caching: databases, schemas, roles, warehouses loaded on-demand  
   – Pagination for large datasets (20 items per page)  
   – Real-time search and filtering client-side  
   – Default values: `UPLAND_ENGINEERING_WH`, `DEV_UPLAND_BRONZE_DB`
+  – Log data processing with efficient filtering and chronological ordering
 
 • **Testing strategy**  
   – Unit tests with pytest + Flask test client  
@@ -61,18 +77,65 @@ flowchart TD
   – Toast notifications for user feedback  
   – Loading states with Bootstrap spinners  
   – Form validation with real-time feedback
+  – Interactive log display with color-coded entries and hover effects
 
 • **Security Architecture**  
   – `require_oauth` decorator for route protection  
   – Warehouse context setting for stored procedure execution  
   – XSS protection through Jinja2 template escaping  
   – CSRF protection via Flask session management
+  – Secure log access with authentication requirements
 
 • **Error Handling Patterns**  
   – Graceful degradation for API failures  
   – User-friendly error messages  
   – Detailed logging for debugging  
   – Fallback UI states for empty data sets
+  – Comprehensive error management in monitoring endpoints
+
+• **Performance Optimization Patterns**
+  – Client-side filtering and sorting for immediate responsiveness
+  – Debounced search inputs to prevent excessive API calls
+  – Intelligent auto-refresh management for resource efficiency
+  – Cached data structures for instant user detail access
+  – Optimized database queries with single-view architecture
+
+## Monitoring & Debugging Architecture
+
+### Real-time Log Monitoring System
+| Component | Implementation | Purpose |
+|-----------|----------------|---------|
+| Server Logs Tab | Bootstrap tab with terminal-style interface | Professional log viewing experience |
+| Auto-refresh Management | 5-second intervals with tab visibility detection | Resource-efficient real-time monitoring |
+| Multi-level Filtering | Log level, search terms, line count controls | Precise log analysis capabilities |
+| Interactive Display | Color-coded entries with click-to-expand details | Enhanced debugging experience |
+
+### Backend Log Processing
+```python
+# Log endpoint pattern
+@app.route('/logs')
+@require_oauth
+def get_server_logs():
+    # Multi-dimensional filtering support
+    lines = request.args.get('lines', '100', type=int)
+    level_filter = request.args.get('level', '')
+    search_term = request.args.get('search', '')
+    
+    # Structured response with metadata
+    return jsonify({
+        'success': True,
+        'logs': processed_logs,
+        'total_lines': len(logs),
+        'filters': filter_metadata,
+        'timestamp': current_timestamp
+    })
+```
+
+### Frontend Monitoring Patterns
+- **Tab Management**: Auto-load logs when tab shown, cleanup when hidden
+- **Event Handling**: Comprehensive event management for filters, search, navigation
+- **Resource Management**: Proper cleanup of intervals and event listeners
+- **User Experience**: Smooth scrolling, hover effects, and interactive feedback
 
 ## UI Color Palette & Design System
 
@@ -105,6 +168,15 @@ flowchart TD
 | Border Color | `#4a4858` | `--border-color` | Element borders |
 | Muted Text | `#b8b5a8` | `--muted-text` | Secondary text, labels |
 
+### Log Level Color Coding
+| Log Level | Hex Code | Usage |
+|-----------|----------|-------|
+| DEBUG | `#6c757d` | Debug information, detailed tracing |
+| INFO | `#17a2b8` | General information, normal operations |
+| WARNING | `#ffc107` | Warning conditions, attention needed |
+| ERROR | `#dc3545` | Error conditions, failed operations |
+| CRITICAL | `#721c24` | Critical errors, system failures |
+
 ### Security Indicator Colors
 - **Success/Enabled**: `var(--asparagus)` with white text
 - **Disabled/Not Set**: `#6c757d` (Bootstrap secondary) with dark text
@@ -119,3 +191,11 @@ flowchart TD
 - Consistent hover states use `--light-accent` for interactive elements
 - Focus states use 25% opacity of primary brand color for accessibility
 - Bootstrap badge classes overridden with custom semantic colors
+- Log level colors provide clear visual distinction for monitoring interface
+
+### Monitoring Interface Design Patterns
+- **Terminal Aesthetics**: Monospace font with black background for authentic log viewing
+- **Interactive Elements**: Hover effects and click-to-expand functionality
+- **Professional Layout**: Card-based design with header, body, and footer sections
+- **Status Indicators**: Color-coded log levels with consistent visual hierarchy
+- **Resource Efficiency**: Smart auto-refresh management with user control

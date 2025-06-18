@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 import time
+import re
 
 try:
     import snowflake.connector  # type: ignore
@@ -28,6 +29,34 @@ class SnowflakeClient:
         self._warehouse: str | None = None
         self._users_cache: Dict[str, Dict[str, Any]] = {}  # Cache for user data by username
         self._cache_timestamp: float | None = None  # When cache was last updated
+
+    def _validate_identifier(self, identifier: str, identifier_type: str = "identifier") -> None:
+        """Validate Snowflake identifiers to prevent SQL injection.
+        
+        Snowflake identifiers must match: ^[A-Za-z_][A-Za-z0-9_$]*$
+        or be properly quoted.
+        """
+        if not identifier:
+            raise ValueError(f"Invalid {identifier_type}: empty string")
+        
+        # Allow quoted identifiers (enclosed in double quotes)
+        if identifier.startswith('"') and identifier.endswith('"'):
+            # Check for proper escaping of quotes inside quoted identifier
+            inner = identifier[1:-1]
+            if '""' in inner:
+                # Properly escaped quote, replace with single quote for validation
+                inner = inner.replace('""', '"')
+            if '"' in inner:
+                raise ValueError(f"Invalid {identifier_type}: unescaped quote in quoted identifier")
+            return  # Quoted identifiers are accepted as-is after quote validation
+        
+        # Unquoted identifiers must match Snowflake naming rules
+        if not re.match(r'^[A-Za-z_][A-Za-z0-9_$]*$', identifier):
+            raise ValueError(f"Invalid {identifier_type}: must contain only letters, numbers, underscore, and dollar sign, and start with letter or underscore")
+        
+        # Additional length check (Snowflake max identifier length is 255)
+        if len(identifier) > 255:
+            raise ValueError(f"Invalid {identifier_type}: too long (max 255 characters)")
 
     # ------------------------------------------------------------------
     # Connection helpers
@@ -56,7 +85,9 @@ class SnowflakeClient:
         if warehouse:
             cur = self._conn.cursor()
             try:
-                cur.execute(f"USE WAREHOUSE {warehouse}")
+                # Validate warehouse name to prevent SQL injection
+                self._validate_identifier(warehouse, "warehouse")
+                cur.execute(f"USE WAREHOUSE {warehouse}")  # Note: USE statements require identifier, not parameter
             except Exception:
                 # Ignore errors such as warehouse not found; caller may set another warehouse
                 pass
@@ -128,9 +159,13 @@ class SnowflakeClient:
         if self._conn is None:
             raise RuntimeError("Snowflake connection not initialised")
         self._ensure_wh()
+        
+        # Validate database name to prevent SQL injection
+        self._validate_identifier(db, "database")
+        
         cur = self._conn.cursor()
         try:
-            cur.execute(f"SHOW SCHEMAS IN DATABASE {db}")
+            cur.execute(f"SHOW SCHEMAS IN DATABASE {db}")  # SHOW statements require identifier, not parameter
             return [row[1] for row in cur.fetchall()]
         finally:
             cur.close()
@@ -179,9 +214,13 @@ class SnowflakeClient:
         if self._conn is None:
             raise RuntimeError("Snowflake connection not initialised")
         self._ensure_wh()
+        
+        # Validate role name to prevent SQL injection
+        self._validate_identifier(role_name, "role")
+        
         cur = self._conn.cursor()
         try:
-            cur.execute(f"SHOW GRANTS TO ROLE {role_name}")
+            cur.execute(f"SHOW GRANTS TO ROLE {role_name}")  # SHOW statements require identifier, not parameter
             columns = [desc[0] for desc in cur.description]
             privileges = []
             for row in cur.fetchall():
@@ -205,9 +244,13 @@ class SnowflakeClient:
         if self._conn is None:
             raise RuntimeError("Snowflake connection not initialised")
         self._ensure_wh()
+        
+        # Validate role name to prevent SQL injection
+        self._validate_identifier(role_name, "role")
+        
         cur = self._conn.cursor()
         try:
-            cur.execute(f"SHOW GRANTS OF ROLE {role_name}")
+            cur.execute(f"SHOW GRANTS OF ROLE {role_name}")  # SHOW statements require identifier, not parameter
             columns = [desc[0] for desc in cur.description]
             grants = []
             for row in cur.fetchall():
@@ -239,10 +282,13 @@ class SnowflakeClient:
         if self._conn is None:
             raise RuntimeError("Snowflake connection not initialised")
         
+        # Validate warehouse name to prevent SQL injection
+        self._validate_identifier(warehouse, "warehouse")
+        
         self._warehouse = warehouse
         cur = self._conn.cursor()
         try:
-            cur.execute(f"USE WAREHOUSE {warehouse}")
+            cur.execute(f"USE WAREHOUSE {warehouse}")  # USE statements require identifier, not parameter
         except Exception as e:
             # Re-raise warehouse errors as they are important for grants
             raise RuntimeError(f"Failed to set warehouse {warehouse}: {str(e)}")
@@ -308,7 +354,8 @@ class SnowflakeClient:
         if self._warehouse and self._conn is not None:
             cur = self._conn.cursor()
             try:
-                cur.execute(f"USE WAREHOUSE {self._warehouse}")
+                # Warehouse name was already validated when set
+                cur.execute(f"USE WAREHOUSE {self._warehouse}")  # USE statements require identifier, not parameter
             except Exception:
                 # Ignore errors such as warehouse not found; caller may set another warehouse
                 pass
@@ -317,6 +364,9 @@ class SnowflakeClient:
 
     def get_user_details(self, username: str) -> Dict[str, Any]:
         """Get detailed information about a specific user from cache or view."""
+        # Validate username to prevent SQL injection
+        self._validate_identifier(username, "username")
+        
         # Check if we have cached data for this user
         if username in self._users_cache:
             print(f"Retrieved user details for {username} from cache")
@@ -329,8 +379,8 @@ class SnowflakeClient:
         
         cur = self._conn.cursor()
         try:
-            # Query the view for this specific user
-            cur.execute(f"SELECT * FROM UPLAND_MAINTENANCE.SECURITY.V_USER_KEY_MANAGEMENT WHERE USERNAME = '{username}'")
+            # Query the view for this specific user using parameterized query
+            cur.execute("SELECT * FROM UPLAND_MAINTENANCE.SECURITY.V_USER_KEY_MANAGEMENT WHERE USERNAME = %s", (username,))
             columns = [desc[0] for desc in cur.description]
             row = cur.fetchone()
             
@@ -418,6 +468,9 @@ class SnowflakeClient:
             raise RuntimeError("Snowflake connection not initialised")
         self._ensure_wh()
         
+        # Validate username to prevent SQL injection
+        self._validate_identifier(username, "username")
+        
         if key_number not in [1, 2]:
             raise ValueError("key_number must be 1 or 2")
         
@@ -429,12 +482,16 @@ class SnowflakeClient:
             # Assume it's already just the key content
             key_content = public_key.replace('\n', '')
         
+        # Validate key content contains only base64 characters
+        if not re.match(r'^[A-Za-z0-9+/=]*$', key_content):
+            raise ValueError("Invalid public key format: contains non-base64 characters")
+        
         cur = self._conn.cursor()
         try:
             if key_number == 1:
-                cur.execute(f"ALTER USER {username} SET RSA_PUBLIC_KEY='{key_content}'")
+                cur.execute("ALTER USER %s SET RSA_PUBLIC_KEY=%s", (username, key_content))
             else:
-                cur.execute(f"ALTER USER {username} SET RSA_PUBLIC_KEY_2='{key_content}'")
+                cur.execute("ALTER USER %s SET RSA_PUBLIC_KEY_2=%s", (username, key_content))
             
             return {
                 'success': True,
@@ -458,15 +515,18 @@ class SnowflakeClient:
             raise RuntimeError("Snowflake connection not initialised")
         self._ensure_wh()
         
+        # Validate username to prevent SQL injection
+        self._validate_identifier(username, "username")
+        
         if key_number not in [1, 2]:
             raise ValueError("key_number must be 1 or 2")
         
         cur = self._conn.cursor()
         try:
             if key_number == 1:
-                cur.execute(f"ALTER USER {username} UNSET RSA_PUBLIC_KEY")
+                cur.execute("ALTER USER %s UNSET RSA_PUBLIC_KEY", (username,))
             else:
-                cur.execute(f"ALTER USER {username} UNSET RSA_PUBLIC_KEY_2")
+                cur.execute("ALTER USER %s UNSET RSA_PUBLIC_KEY_2", (username,))
             
             return {
                 'success': True,
@@ -483,6 +543,128 @@ class SnowflakeClient:
             }
         finally:
             cur.close()
+
+    def update_user_rsa_key(self, username: str, public_key: str, unset_password: bool = False, new_type: str = None) -> Dict[str, Any]:
+        """
+        Enhanced RSA key update with stored procedure fallback to direct ALTER USER.
+        Sets RSA_PUBLIC_KEY and optionally unsets password and/or changes user type.
+        """
+        # Validate username to prevent SQL injection
+        self._validate_identifier(username, "username")
+        
+        # Extract just the key content (remove header/footer and join lines)
+        lines = public_key.strip().split('\n')
+        if len(lines) > 2 and lines[0].startswith('-----BEGIN') and lines[-1].startswith('-----END'):
+            key_content = ''.join(lines[1:-1])
+        else:
+            # Assume it's already just the key content
+            key_content = public_key.replace('\n', '')
+        
+        # Validate key content contains only base64 characters
+        if not re.match(r'^[A-Za-z0-9+/=]*$', key_content):
+            raise ValueError("Invalid public key format: contains non-base64 characters")
+        
+        # Validate new_type if provided
+        if new_type and new_type.upper() not in ['PERSON', 'SERVICE', 'LEGACY_SERVICE', 'NULL']:
+            raise ValueError("Invalid user type. Allowed: PERSON, SERVICE, LEGACY_SERVICE, NULL")
+        
+        # Try stored procedure first, fall back to direct ALTER USER
+        try:
+            # Use existing call_stored_procedure method for consistency
+            result = self.call_stored_procedure(
+                'UPLAND_MAINTENANCE.SECURITY.sp_update_user_rsa_key',
+                [username, key_content, unset_password, new_type]
+            )
+            
+            # Extract message from stored procedure result
+            message = f'RSA key updated successfully for user {username}'
+            if result.get('result') and len(result['result']) > 0:
+                message = str(result['result'][0])
+            elif result.get('rows') and len(result['rows']) > 0:
+                message = str(result['rows'][0][0])
+            
+            return {
+                'success': True,
+                'message': message,
+                'username': username,
+                'actions_performed': {
+                    'rsa_key_set': True,
+                    'password_unset': unset_password,
+                    'type_changed': bool(new_type and new_type.upper() != 'NULL')
+                }
+            }
+        except Exception as stored_proc_error:
+            print(f"Stored procedure failed, falling back to direct ALTER USER: {stored_proc_error}")
+            
+            # Fallback: use direct ALTER USER commands
+            if self._conn is None:
+                raise RuntimeError("Snowflake connection not initialised")
+            self._ensure_wh()
+            
+            cur = self._conn.cursor()
+            actions_performed = {
+                'rsa_key_set': False,
+                'password_unset': False,
+                'type_changed': False
+            }
+            messages = []
+            
+            try:
+                # Build SET clauses for ALTER USER
+                set_clauses = []
+                
+                # Always set RSA public key
+                set_clauses.append(f"RSA_PUBLIC_KEY = '{key_content}'")
+                
+                # Optionally unset password
+                if unset_password:
+                    set_clauses.append("PASSWORD = NULL")
+                
+                # Optionally change user type
+                if new_type and new_type.upper() != 'NULL':
+                    if new_type.upper() == 'NULL':
+                        set_clauses.append("TYPE = NULL")
+                    else:
+                        set_clauses.append(f"TYPE = {new_type.upper()}")
+                
+                # Execute ALTER USER command
+                alter_sql = f'ALTER USER "{username}" SET ' + ', '.join(set_clauses)
+                print(f"Executing fallback ALTER USER: {alter_sql}")
+                cur.execute(alter_sql)
+                
+                # Track successful actions
+                actions_performed['rsa_key_set'] = True
+                messages.append("RSA public key set successfully")
+                
+                if unset_password:
+                    actions_performed['password_unset'] = True
+                    messages.append("password unset (disabled password login)")
+                
+                if new_type and new_type.upper() != 'NULL':
+                    actions_performed['type_changed'] = True
+                    messages.append(f"user type changed to {new_type.upper()}")
+                
+                final_message = f"User {username} updated successfully: " + ", ".join(messages)
+                
+                return {
+                    'success': True,
+                    'message': final_message,
+                    'username': username,
+                    'actions_performed': actions_performed,
+                    'fallback_used': True
+                }
+                
+            except Exception as alter_error:
+                return {
+                    'success': False,
+                    'message': f'Failed to update RSA key for user {username}: {str(alter_error)}',
+                    'username': username,
+                    'actions_performed': actions_performed,
+                    'stored_proc_error': str(stored_proc_error),
+                    'alter_user_error': str(alter_error)
+                }
+            finally:
+                cur.close()
 
     def list_users_with_keys(self) -> List[Dict[str, Any]]:
         """List all users with enhanced key information for key management view."""
@@ -556,7 +738,9 @@ class SnowflakeClient:
                 if warehouses:
                     warehouse_to_use = warehouses[0]  # Use the first available warehouse
                     print(f"Using warehouse: {warehouse_to_use}")
-                    cur.execute(f"USE WAREHOUSE {warehouse_to_use}")
+                    # Validate warehouse name to prevent SQL injection
+                    self._validate_identifier(warehouse_to_use, "warehouse")
+                    cur.execute(f"USE WAREHOUSE {warehouse_to_use}")  # USE statements require identifier, not parameter
                     print(f"Successfully set warehouse to {warehouse_to_use}")
                 else:
                     print("No warehouses available - trying without warehouse")

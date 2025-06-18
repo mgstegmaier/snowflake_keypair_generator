@@ -325,10 +325,12 @@
         /* Custom Bootstrap badge colors using our semantic palette */
         .badge.bg-success {
             background-color: var(--asparagus) !important;
+            color: #fff !important;
         }
         
         .badge.bg-danger {
             background-color: var(--pomegranate) !important;
+            color: #fff !important;
         }
         
         .badge.bg-warning {
@@ -336,8 +338,19 @@
             color: #000 !important; /* Dark text for better contrast on yellow */
         }
         
+        .badge.bg-info {
+            background-color: var(--light-accent) !important;
+            color: #fff !important;
+        }
+        
+        .badge.bg-primary {
+            background-color: var(--tuscany) !important;
+            color: #fff !important;
+        }
+        
         .badge.bg-secondary {
-            background-color: #6c757d !important; /* Keep Bootstrap's secondary gray */
+            background-color: var(--dark-accent) !important;
+            color: #fff !important;
         }
 
         /* Custom table and modal styling to match main app background */
@@ -456,18 +469,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="keymgmt-tab" data-bs-toggle="tab" href="#keys" role="tab">
-                            <i class="bi bi-key-fill me-2"></i>Key Management
+                        <a class="nav-link" id="users-tab" data-bs-toggle="tab" href="#users" role="tab">
+                            <i class="bi bi-people me-2"></i>User Management
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" id="grant-tab" data-bs-toggle="tab" href="#grant" role="tab">
                             <i class="bi bi-person-plus me-2"></i>Grant Permissions
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="user-tab" data-bs-toggle="tab" href="#users" role="tab">
-                            <i class="bi bi-people me-2"></i>User Management
                         </a>
                     </li>
                     <li class="nav-item">
@@ -478,6 +486,11 @@
                     <li class="nav-item">
                         <a class="nav-link" id="process-tab" data-bs-toggle="tab" href="#process" role="tab">
                             <i class="bi bi-box-arrow-down me-2"></i>Process RSA Keys
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="logs-tab" data-bs-toggle="tab" href="#logs" role="tab">
+                            <i class="bi bi-journal-text me-2"></i>Server Logs
                         </a>
                     </li>
                 </ul>
@@ -597,12 +610,12 @@
                             </div>
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="user-tab">
+                    <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="users-tab">
                         <h3 class="mb-4">User Management</h3>
                         
                         <!-- Search and Filter Controls -->
                         <div class="row mb-4">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="input-group">
                                     <input type="text" class="form-control" id="userSearch" placeholder="Search users...">
                                     <button class="btn btn-brand" type="button" id="searchUsersBtn">
@@ -610,15 +623,30 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <select class="form-select" id="userStatusFilter">
-                                    <option value="">All Users</option>
-                                    <option value="active" selected>Active Only</option>
-                                    <option value="disabled">Disabled Only</option>
-                                    <option value="locked">Locked Only</option>
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="disabled">Disabled</option>
+                                    <option value="locked">Locked</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
+                                <select class="form-select" id="userKeyFilter">
+                                    <option value="">All Keys</option>
+                                    <option value="has_keys">Has RSA Keys</option>
+                                    <option value="no_keys">No RSA Keys</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="userAuthFilter">
+                                    <option value="">All Auth</option>
+                                    <option value="mfa">Has MFA</option>
+                                    <option value="password">Has Password</option>
+                                    <option value="sso_only">SSO Only</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
                                 <button class="btn btn-brand" id="refreshUsers">
                                     <i class="bi bi-arrow-clockwise"></i> Refresh
                                 </button>
@@ -630,18 +658,24 @@
                             <table class="table table-app-bg table-striped-app text-light table-hover" id="usersTable">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th class="text-center" style="cursor: pointer;" onclick="sortUsersTable('name')">
+                                        <th style="cursor: pointer;" onclick="sortUsersTable('name')">
                                             Username <i class="bi bi-arrow-down-up" id="sort-users-name"></i>
                                         </th>
-                                        <th class="text-center" style="cursor: pointer;" onclick="sortUsersTable('status')">
+                                        <th style="cursor: pointer;" onclick="sortUsersTable('display_name')">
+                                            Display Name <i class="bi bi-arrow-down-up" id="sort-users-display_name"></i>
+                                        </th>
+                                        <th style="cursor: pointer;" onclick="sortUsersTable('status')">
                                             Status <i class="bi bi-arrow-down-up" id="sort-users-status"></i>
+                                        </th>
+                                        <th style="cursor: pointer;" onclick="sortUsersTable('rsa_keys')">
+                                            RSA Keys <i class="bi bi-arrow-down-up" id="sort-users-rsa_keys"></i>
                                         </th>
                                         <th class="text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="usersTableBody">
                                     <tr>
-                                        <td colspan="4" class="text-center">
+                                        <td colspan="5" class="text-center">
                                             <div class="spinner-border text-primary" role="status">
                                                 <span class="visually-hidden">Loading...</span>
                                             </div>
@@ -739,74 +773,7 @@
                             </ul>
                         </nav>
                     </div>
-                    <div class="tab-pane fade" id="keys" role="tabpanel" aria-labelledby="keymgmt-tab">
-                        <h3 class="mb-4">Key Management</h3>
-                        
-                        <!-- Search and Filter Controls -->
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <div class="input-group">
-                                    <input type="text" class="form-control" id="keySearch" placeholder="Search users...">
-                                    <button class="btn btn-brand" type="button" id="searchKeysBtn">
-                                        <i class="bi bi-search"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="keyStatusFilter">
-                                    <option value="">All Users</option>
-                                    <option value="has_keys">Has RSA Keys</option>
-                                    <option value="no_keys">No RSA Keys</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <button class="btn btn-brand" id="refreshKeys">
-                                    <i class="bi bi-arrow-clockwise"></i> Refresh
-                                </button>
-                            </div>
-                        </div>
 
-                        <!-- Key Management Table -->
-                        <div class="table-responsive">
-                            <table class="table table-app-bg table-striped-app text-light table-hover" id="keysTable">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th class="text-center" style="cursor: pointer;" onclick="sortKeysTable('name')">
-                                            Username <i class="bi bi-arrow-down-up" id="sort-keys-name"></i>
-                                        </th>
-                                        <th class="text-center" style="cursor: pointer;" onclick="sortKeysTable('rsa_keys')">
-                                            RSA Keys <i class="bi bi-arrow-down-up" id="sort-keys-rsa_keys"></i>
-                                        </th>
-                                        <th class="text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="keysTableBody">
-                                    <tr>
-                                        <td colspan="4" class="text-center">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Pagination -->
-                        <nav aria-label="Keys pagination" id="keysPagination" style="display: none;">
-                            <ul class="pagination justify-content-center">
-                                <li class="page-item">
-                                    <a class="page-link" href="#" id="keysPrevPage">Previous</a>
-                                </li>
-                                <li class="page-item active">
-                                    <span class="page-link" id="keysCurrentPageInfo">Page 1 of 1</span>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="#" id="keysNextPage">Next</a>
-                                </li>
-                            </ul>
-                        </nav>
-                    </div>
                     <div class="tab-pane fade" id="grant" role="tabpanel" aria-labelledby="grant-tab">
                         <div class="grant-permissions-container" style="width: fit-content; max-width: 100%;">
                             <h3 class="mb-4">Grant Permissions</h3>
@@ -867,6 +834,92 @@
                         </form>
                         </div>
                     </div>
+                    <div class="tab-pane fade" id="logs" role="tabpanel" aria-labelledby="logs-tab">
+                        <h3 class="mb-4">Server Logs</h3>
+                        
+                        <!-- Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label for="logLevelFilter" class="form-label">Log Level</label>
+                                <select class="form-select" id="logLevelFilter">
+                                    <option value="">All Levels</option>
+                                    <option value="DEBUG">Debug</option>
+                                    <option value="INFO">Info</option>
+                                    <option value="WARNING">Warning</option>
+                                    <option value="ERROR">Error</option>
+                                    <option value="CRITICAL">Critical</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="logLines" class="form-label">Lines to Show</label>
+                                <select class="form-select" id="logLines">
+                                    <option value="50">50 lines</option>
+                                    <option value="100" selected>100 lines</option>
+                                    <option value="200">200 lines</option>
+                                    <option value="500">500 lines</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="logSearch" class="form-label">Search</label>
+                                <input type="text" class="form-control" id="logSearch" placeholder="Search logs...">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end gap-2">
+                                <button class="btn btn-brand" id="refreshLogsBtn">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                                    <label class="form-check-label" for="autoRefresh">
+                                        Auto-refresh
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Log Content -->
+                        <div class="card bg-dark border-secondary">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0"><i class="bi bi-journal-text me-2"></i>Live Server Logs</h6>
+                                <small class="text-muted" id="lastLogUpdate">Last updated: Never</small>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="logContainer" style="height: 500px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.875rem; background-color: #000; color: #fff; padding: 1rem;">
+                                    <div class="text-center text-muted">
+                                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        Loading logs...
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer d-flex justify-content-between align-items-center">
+                                <small class="text-muted" id="logStats">Lines: 0 | Filtered: 0</small>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-outline-secondary btn-sm" id="scrollToTop">
+                                        <i class="bi bi-arrow-up"></i> Top
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="scrollToBottom">
+                                        <i class="bi bi-arrow-down"></i> Bottom
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="clearLogsBtn">
+                                        <i class="bi bi-trash"></i> Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Log Entry Details (for expanding entries) -->
+                        <div class="mt-3" id="logDetails" style="display: none;">
+                            <div class="card bg-dark border-secondary">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Log Entry Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <pre class="text-light" id="logDetailsContent"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div id="tabOverlay" class="tab-disabled-overlay" style="display:none;">
                     <i class="bi bi-lock me-2"></i> Please log in to use admin features.
@@ -887,16 +940,16 @@
     <!-- Unlock User Modal -->
     <div class="modal fade" id="unlockUserModal" tabindex="-1" aria-labelledby="unlockUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="unlockUserModalLabel">Unlock User</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="unlockUserModalLabel">Unlock User</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body modal-app-bg text-light">
                     <p>Are you sure you want to unlock the user <strong id="unlockUsername"></strong>?</p>
                     <p class="text-muted">This will immediately allow the user to log in again.</p>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer modal-app-bg border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-warning" id="confirmUnlockUser">
                         <i class="bi bi-unlock"></i> Unlock User
@@ -909,12 +962,12 @@
     <!-- Reset Password Modal -->
     <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
         <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="resetPasswordModalLabel">Reset Password</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="resetPasswordModalLabel">Reset Password</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body modal-app-bg text-light">
                     <p>Reset password for user <strong id="resetUsername"></strong></p>
                     <div class="mb-3">
                         <label for="newPassword" class="form-label">New Password</label>
@@ -936,7 +989,7 @@
                         <div class="invalid-feedback" id="passwordMismatchError"></div>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer modal-app-bg border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-danger" id="confirmResetPassword">
                         <i class="bi bi-key"></i> Reset Password
@@ -949,16 +1002,16 @@
     <!-- Unset Password Modal -->
     <div class="modal fade" id="unsetPasswordModal" tabindex="-1" aria-labelledby="unsetPasswordModalLabel" aria-hidden="true">
         <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="unsetPasswordModalLabel">Unset Password</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content modal-app-bg text-light">
+                <div class="modal-header modal-app-bg border-secondary">
+                    <h5 class="modal-title text-light" id="unsetPasswordModalLabel">Unset Password</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body modal-app-bg text-light">
                     <p>Are you sure you want to unset the password for user <strong id="unsetUsername"></strong>?</p>
                     <p class="text-muted">This will remove the user's password. They will need to authenticate using other methods (SSO, key pairs, etc.).</p>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer modal-app-bg border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-danger" id="confirmUnsetPassword">
                         <i class="bi bi-x-circle"></i> Unset Password
@@ -1320,6 +1373,41 @@
                         <label class="form-check-label" for="setInSnowflake">
                             Set the new public key in Snowflake after generation
                         </label>
+                    </div>
+                    
+                    <hr class="border-secondary">
+                    
+                    <h6 class="text-light mb-3">Additional Options</h6>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="unsetPassword">
+                        <label class="form-check-label" for="unsetPassword">
+                            <i class="bi bi-exclamation-triangle text-warning me-1"></i>
+                            Unset password (disable password login)
+                        </label>
+                        <div class="form-text text-muted">
+                            This will remove the user's password. They will only be able to authenticate using RSA keys or SSO.
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="changeUserType">
+                        <label class="form-check-label" for="changeUserType">
+                            Change user type
+                        </label>
+                    </div>
+                    
+                    <div class="mb-3" id="userTypeGroup" style="display: none;">
+                        <label for="userType" class="form-label">User Type</label>
+                        <select class="form-select" id="userType">
+                            <option value="NULL">NULL / Unchanged</option>
+                            <option value="PERSON">PERSON</option>
+                            <option value="SERVICE">SERVICE</option>
+                            <option value="LEGACY_SERVICE">LEGACY_SERVICE</option>
+                        </select>
+                        <div class="form-text text-muted">
+                            Changes the user's type classification in Snowflake.
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer modal-app-bg border-secondary">
@@ -1839,6 +1927,44 @@
                 }
             }
 
+            async function preloadTabData() {
+                console.log('Pre-loading tab data after authentication...');
+                
+                try {
+                    // Pre-load User Management data
+                    console.log('Pre-loading User Management data...');
+                    if (typeof loadUsers === 'function') {
+                        loadUsers();
+                    } else {
+                        // If loadUsers function not available yet, pre-load the data silently
+                        fetchWithAuth('/keys/users').then(data => {
+                            allUsers = data;
+                            console.log('✓ User Management data pre-loaded:', allUsers.length, 'users');
+                        }).catch(err => {
+                            console.log('⚠ Failed to pre-load User Management data:', err.message);
+                        });
+                    }
+                    
+                    // Pre-load Role Management data
+                    console.log('Pre-loading Role Management data...');
+                    if (typeof loadRolesData === 'function') {
+                        loadRolesData();
+                    } else {
+                        // If loadRolesData function not available yet, pre-load the data silently
+                        fetchWithAuth('/roles/detailed').then(response => {
+                            rolesData = response.data || response;
+                            console.log('✓ Role Management data pre-loaded:', rolesData.length, 'roles');
+                        }).catch(err => {
+                            console.log('⚠ Failed to pre-load Role Management data:', err.message);
+                        });
+                    }
+                    
+                    console.log('✓ Tab data pre-loading initiated');
+                } catch (error) {
+                    console.log('⚠ Error during tab data pre-loading:', error);
+                }
+            }
+
             function updateAuthUI() {
                 console.log('Updating auth UI, isAuthenticated:', isAuthenticated);
                 if (isAuthenticated) {
@@ -1864,6 +1990,10 @@
                             }
                         }
                     }).catch(()=>{});
+
+                    // Pre-load data for User Management and Role Management tabs
+                    // Small delay to ensure all functions are defined
+                    setTimeout(preloadTabData, 100);
 
                     startInactivityTimer();
                 } else {
@@ -1935,7 +2065,7 @@
             let usersSortDirection = 'asc';
             
             // Load users when tab is shown
-            document.getElementById('user-tab').addEventListener('shown.bs.tab', function () {
+            document.getElementById('users-tab').addEventListener('shown.bs.tab', function () {
                 if (isAuthenticated) {
                     loadUsers();
                 }
@@ -1944,8 +2074,10 @@
             // Initialize default sorting for Users table (already initialized above)
 
             // Search and filter functionality
-            document.getElementById('userSearch').addEventListener('input', filterUsers);
-            document.getElementById('userStatusFilter').addEventListener('change', filterUsers);
+            document.getElementById('userSearch').addEventListener('input', applyUserFilters);
+            document.getElementById('userStatusFilter').addEventListener('change', applyUserFilters);
+            document.getElementById('userKeyFilter').addEventListener('change', applyUserFilters);
+            document.getElementById('userAuthFilter').addEventListener('change', applyUserFilters);
             document.getElementById('refreshUsers').addEventListener('click', loadUsers);
 
             // Modal functionality
@@ -2062,33 +2194,35 @@
 
             async function loadUsers() {
                 const tableBody = document.getElementById('usersTableBody');
-                tableBody.innerHTML = '<tr><td colspan="3" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
                 
                 try {
-                    const users = await fetchWithAuth('/users');
-                    allUsers = users;
+                    // Use the optimized endpoint that provides all data (from keys management)
+                    const response = await fetchWithAuth('/keys/users');
+                    allUsers = response.data || response;
                     
-                    // Apply default sorting
-                    if (usersSortField) {
-                        window.sortUsersTable(usersSortField);
-                    } else {
-                        filterUsers();
-                    }
+                    // Apply default sorting and filtering
+                    applyUserFilters();
                 } catch (error) {
-                    tableBody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Error loading users: ${error.message}</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error loading users: ${error.message}</td></tr>`;
                 }
             }
 
-            function filterUsers() {
+            function applyUserFilters() {
                 const searchTerm = document.getElementById('userSearch').value.toLowerCase();
                 const statusFilter = document.getElementById('userStatusFilter').value;
+                const keyFilter = document.getElementById('userKeyFilter').value;
+                const authFilter = document.getElementById('userAuthFilter').value;
                 
                 let filteredUsers = allUsers.filter(user => {
+                    // Search matching
                     const matchesSearch = 
                         user.name.toLowerCase().includes(searchTerm) ||
-                        user.login_name.toLowerCase().includes(searchTerm) ||
-                        user.display_name.toLowerCase().includes(searchTerm);
+                        (user.login_name || '').toLowerCase().includes(searchTerm) ||
+                        (user.display_name || '').toLowerCase().includes(searchTerm) ||
+                        (user.email || '').toLowerCase().includes(searchTerm);
                     
+                    // Status filtering  
                     let matchesStatus = true;
                     if (statusFilter === 'active') {
                         matchesStatus = !user.disabled && !user.snowflake_lock;
@@ -2098,9 +2232,28 @@
                         matchesStatus = user.snowflake_lock;
                     }
                     
-                    return matchesSearch && matchesStatus;
+                    // Key filtering
+                    let matchesKeys = true;
+                    if (keyFilter === 'has_keys') {
+                        matchesKeys = user.has_rsa_public_key;
+                    } else if (keyFilter === 'no_keys') {
+                        matchesKeys = !user.has_rsa_public_key;
+                    }
+                    
+                    // Authentication filtering
+                    let matchesAuth = true;
+                    if (authFilter === 'mfa') {
+                        matchesAuth = user.has_mfa;
+                    } else if (authFilter === 'password') {
+                        matchesAuth = user.has_password;
+                    } else if (authFilter === 'sso_only') {
+                        matchesAuth = !user.has_password;
+                    }
+                    
+                    return matchesSearch && matchesStatus && matchesKeys && matchesAuth;
                 });
                 
+                currentPage = 1;
                 displayUsers(filteredUsers);
                 
                 // Update sort indicators if we have a default sort
@@ -2115,12 +2268,17 @@
                 }
             }
 
+            // Legacy function alias for compatibility
+            function filterUsers() {
+                applyUserFilters();
+            }
+
             function displayUsers(users) {
                 const tableBody = document.getElementById('usersTableBody');
                 const pagination = document.getElementById('usersPagination');
                 
                 if (users.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="3" class="text-center">No users found</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="5" class="text-center">No users found</td></tr>';
                     pagination.style.display = 'none';
                     return;
                 }
@@ -2137,16 +2295,23 @@
                 document.getElementById('nextPage').parentElement.classList.toggle('disabled', currentPage === totalPages);
                 pagination.style.display = totalPages > 1 ? 'block' : 'none';
                 
-                                // Generate table rows
+                // Generate table rows with all columns
                 tableBody.innerHTML = paginatedUsers.map(user => {
                     const status = getUserStatus(user);
-                    const displayName = user.display_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name;
+                    const displayName = user.display_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || '-';
                     const dropdownId = `userDropdown_${user.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                    
+                    // RSA Key status
+                    const rsaKeyStatus = user.has_rsa_public_key ? 
+                        '<span class="badge bg-success"><i class="bi bi-key"></i> Configured</span>' : 
+                        '<span class="badge bg-secondary">Not Set</span>';
                     
                     return `
                         <tr>
                             <td><small><strong>${user.name}</strong></small></td>
+                            <td><small>${displayName}</small></td>
                             <td><small>${status}</small></td>
+                            <td>${rsaKeyStatus}</td>
                             <td>
                                 <div class="d-flex align-items-center gap-1">
                                     <button class="btn btn-brand btn-sm" onclick="showUserDetailsModal('${user.name}')" style="white-space: nowrap;">
@@ -2157,6 +2322,8 @@
                                         ${user.snowflake_lock ? '<option value="unlock">Unlock User</option>' : ''}
                                         <option value="reset">Reset Password</option>
                                         <option value="unset">Unset Password</option>
+                                        <option value="set_key">Set/Rotate Key</option>
+                                        ${user.has_rsa_public_key ? '<option value="remove_key">Remove Key</option>' : ''}
                                     </select>
                                     <button class="btn btn-brand btn-sm" onclick="executeUserAction('${user.name}', '${dropdownId}')">
                                         Go
@@ -2227,21 +2394,21 @@
                     if (user.has_rsa_public_key) {
                         publicKeyEl.innerHTML = '<span class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Configured</span>';
                     } else {
-                        publicKeyEl.innerHTML = '<span class="badge bg-secondary text-dark"><i class="bi bi-x-circle me-1"></i>Not Set</span>';
+                        publicKeyEl.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Not Set</span>';
                     }
                     
                     // SSO indicator (inferred from lack of password)
                     if (!user.has_password) {
                         ssoEl.innerHTML = '<span class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Enabled</span>';
                     } else {
-                        ssoEl.innerHTML = '<span class="badge bg-secondary text-dark"><i class="bi bi-x-circle me-1"></i>Not Used</span>';
+                        ssoEl.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Not Used</span>';
                     }
                     
                     // MFA indicator
                     if (user.has_mfa) {
                         mfaEl.innerHTML = '<span class="badge bg-success text-white"><i class="bi bi-shield-check me-1"></i>Enrolled</span>';
                     } else {
-                        mfaEl.innerHTML = '<span class="badge bg-secondary text-dark"><i class="bi bi-shield-exclamation me-1"></i>Not Enrolled</span>';
+                        mfaEl.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-shield-exclamation me-1"></i>Not Enrolled</span>';
                     }
                 }
                 userDetailsModal.show();
@@ -2257,16 +2424,71 @@
                     return;
                 }
                 
+                // User management actions
                 if (action === 'unlock') {
                     showUnlockModal(username);
                 } else if (action === 'reset') {
                     showResetPasswordModal(username);
                 } else if (action === 'unset') {
                     showUnsetPasswordModal(username);
+                } 
+                // Key management actions
+                else if (action === 'set_key') {
+                    showSetKeyModal(username);
+                } else if (action === 'remove_key') {
+                    const user = allUsers.find(u => u.name === username);
+                    if (user && user.has_rsa_public_key) {
+                        removeKeyForUser(username, 1); // Default to key 1
+                    } else {
+                        showToast('User has no keys to remove', 'warning');
+                    }
                 }
                 
                 // Reset dropdown
                 dropdown.value = '';
+            };
+
+            // Key management modal functions (simplified for unified interface)
+            window.showSetKeyModal = function(username) {
+                const user = allUsers.find(u => u.name === username);
+                if (!user) {
+                    showToast('User not found', 'error');
+                    return;
+                }
+                
+                // Set the username and reset all form values
+                document.getElementById('rotateKeyUsername').textContent = username;
+                document.getElementById('rotateKeyPassphrase').value = '';
+                document.getElementById('setInSnowflake').checked = true;
+                document.getElementById('unsetPassword').checked = false;
+                document.getElementById('changeUserType').checked = false;
+                document.getElementById('userType').value = 'NULL';
+                document.getElementById('userTypeGroup').style.display = 'none';
+                
+                const rotateKeyModal = new bootstrap.Modal(document.getElementById('rotateKeyModal'));
+                rotateKeyModal.show();
+            };
+
+            window.removeKeyForUser = async function(username, keySlot) {
+                if (!confirm(`Are you sure you want to remove the RSA key for ${username}?`)) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetchWithAuth(`/keys/users/${encodeURIComponent(username)}/unset`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast(`RSA key removed for ${username}`, 'success');
+                        loadUsers(); // Refresh the table
+                    } else {
+                        showToast(data.error || 'Failed to remove RSA key', 'error');
+                    }
+                } catch (error) {
+                    showToast('Error removing RSA key: ' + error.message, 'error');
+                }
             };
 
             // Pagination controls
@@ -2721,11 +2943,12 @@
                     const response = await fetchWithAuth('/keys/users');
                     keysData = response;
                     
-                    // Apply default sorting
-                    if (keysSortField) {
+                    // Always apply filters first to populate filteredKeysData
+                    applyKeysFilters();
+                    
+                    // Then apply default sorting if specified
+                    if (keysSortField && filteredKeysData.length > 0) {
                         sortKeysTable(keysSortField);
-                    } else {
-                        applyKeysFilters();
                     }
                 } catch (err) {
                     console.error('Error loading keys data:', err);
@@ -3012,107 +3235,13 @@
                 });
             }
 
-            // Load keys when tab is first shown
-            const keysTab = document.getElementById('keymgmt-tab');
-            if (keysTab) {
-                keysTab.addEventListener('shown.bs.tab', () => {
-                    if (keysData.length === 0) {
-                        loadKeysData();
-                    }
-                });
-            }
+            // Keys tab removed - functionality integrated into Users tab
 
-            // Sorting functionality for keys table
-            function sortKeysTable(field) {
-                // Toggle sort direction if clicking same field
-                if (keysSortField === field) {
-                    keysSortDirection = keysSortDirection === 'asc' ? 'desc' : 'asc';
-                } else {
-                    keysSortField = field;
-                    keysSortDirection = 'asc';
-                }
-                
-                // Update sort icons
-                document.querySelectorAll('[id^="sort-keys-"]').forEach(icon => {
-                    icon.className = 'bi bi-arrow-down-up';
-                });
-                
-                const sortIcon = document.getElementById(`sort-keys-${field}`);
-                if (sortIcon) {
-                    sortIcon.className = keysSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
-                }
-                
-                // Sort the filtered data
-                filteredKeysData.sort((a, b) => {
-                    let aVal, bVal;
-                    
-                    switch (field) {
-                        case 'name':
-                            aVal = a.name.toLowerCase();
-                            bVal = b.name.toLowerCase();
-                            break;
-                        case 'display_name':
-                            aVal = (a.display_name || '').toLowerCase();
-                            bVal = (b.display_name || '').toLowerCase();
-                            break;
-                        case 'rsa_keys':
-                            aVal = a.has_rsa_public_key ? 1 : 0;
-                            bVal = b.has_rsa_public_key ? 1 : 0;
-                            break;
-                        default:
-                            return 0;
-                    }
-                    
-                    if (aVal < bVal) return keysSortDirection === 'asc' ? -1 : 1;
-                    if (aVal > bVal) return keysSortDirection === 'asc' ? 1 : -1;
-                    return 0;
-                });
-                
-                // Reset to first page after sorting
-                currentKeysPage = 1;
-                displayKeysPage();
-            }
+            // Keys sorting integrated into unified Users table sorting
 
-            // Make key management functions globally accessible
-            window.showUserKeyDetails = showUserKeyDetails;
-            window.setKeyForUser = setKeyForUser;
-            window.removeKeyForUser = removeKeyForUser;
-            window.sortKeysTable = sortKeysTable;
+            // Key actions now handled by unified executeUserAction function
 
-            // Execute key action from dropdown
-            window.executeKeyAction = function(username, dropdownId) {
-                const dropdown = document.getElementById(dropdownId);
-                const action = dropdown.value;
-                
-                if (!action) {
-                    showToast('Please select an action first', 'warning');
-                    return;
-                }
-                
-                if (action === 'set') {
-                    showSetKeyModal(username);
-                } else if (action === 'remove') {
-                    // Find key number based on user's current keys
-                    const user = keysData.find(u => u.name === username);
-                    if (user && user.has_rsa_public_key) {
-                        removeKeyForUser(username, 1); // Default to key 1 since we only track overall status
-                    } else {
-                        showToast('User has no keys to remove', 'warning');
-                    }
-                }
-                
-                // Reset dropdown
-                dropdown.value = '';
-            };
-
-            // Show set/rotate key modal
-            function showSetKeyModal(username) {
-                const modal = new bootstrap.Modal(document.getElementById('rotateKeyModal'));
-                document.getElementById('rotateKeyUsername').textContent = username;
-                document.getElementById('rotateKeyPassphrase').value = '';
-                document.getElementById('setInSnowflake').checked = true;
-                modal.show();
-            }
+            // Legacy function - now handled by global showSetKeyModal
 
             // Toggle passphrase visibility for rotate key modal
             document.getElementById('toggleRotateKeyPassphrase').addEventListener('click', function() {
@@ -3128,11 +3257,32 @@
                 }
             });
 
+            // Handle change user type checkbox
+            document.getElementById('changeUserType').addEventListener('change', function() {
+                const userTypeGroup = document.getElementById('userTypeGroup');
+                userTypeGroup.style.display = this.checked ? 'block' : 'none';
+                if (!this.checked) {
+                    document.getElementById('userType').value = 'NULL';
+                }
+            });
+
+            // Password unset warning
+            document.getElementById('unsetPassword').addEventListener('change', function() {
+                if (this.checked) {
+                    if (!confirm('⚠️ WARNING: Unsetting the password will disable password-based login for this user.\n\nThey will only be able to authenticate using:\n• RSA key pairs\n• Single Sign-On (SSO)\n• Other configured authentication methods\n\nAre you sure you want to continue?')) {
+                        this.checked = false;
+                    }
+                }
+            });
+
             // Handle rotate key confirmation
             document.getElementById('confirmRotateKey').addEventListener('click', async function() {
                 const username = document.getElementById('rotateKeyUsername').textContent;
                 const passphrase = document.getElementById('rotateKeyPassphrase').value;
                 const setInSnowflake = document.getElementById('setInSnowflake').checked;
+                const unsetPassword = document.getElementById('unsetPassword').checked;
+                const changeUserType = document.getElementById('changeUserType').checked;
+                const userType = changeUserType ? document.getElementById('userType').value : null;
                 
                 if (!passphrase.trim()) {
                     showToast('Please enter a passphrase', 'error');
@@ -3150,7 +3300,9 @@
                         body: JSON.stringify({
                             username: username,
                             passphrase: passphrase,
-                            set_in_snowflake: setInSnowflake
+                            set_in_snowflake: setInSnowflake,
+                            unset_password: unsetPassword,
+                            new_type: userType
                         })
                     });
                     
@@ -3160,8 +3312,8 @@
                     // Show results modal
                     showKeyGenResults(response);
                     
-                    // Refresh key management table
-                    loadKeysData();
+                    // Refresh user management table
+                    loadUsers();
                     
                 } catch (err) {
                     console.error('Error rotating key:', err);
@@ -3189,6 +3341,16 @@
                     
                     if (response.snowflake_success) {
                         resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle" style="color: #28a745;"></i><span class="ms-2">Public key set in Snowflake</span></div>';
+                        
+                        // Show additional actions performed
+                        if (response.actions_performed) {
+                            if (response.actions_performed.password_unset) {
+                                resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle" style="color: #28a745;"></i><span class="ms-2">Password unset (disabled password login)</span></div>';
+                            }
+                            if (response.actions_performed.type_changed) {
+                                resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle" style="color: #28a745;"></i><span class="ms-2">User type updated</span></div>';
+                            }
+                        }
                     } else if (response.snowflake_attempted) {
                         resultsHtml += '<div class="d-flex align-items-center mb-2"><i class="bi bi-exclamation-triangle" style="color: #ff8c00;"></i><span class="ms-2">Snowflake update failed</span></div>';
                     }
@@ -3291,6 +3453,10 @@
                             aVal = a.disabled ? 'disabled' : a.snowflake_lock ? 'locked' : a.must_change_password ? 'must_change' : 'active';
                             bVal = b.disabled ? 'disabled' : b.snowflake_lock ? 'locked' : b.must_change_password ? 'must_change' : 'active';
                             break;
+                        case 'rsa_keys':
+                            aVal = a.has_rsa_public_key ? 1 : 0;
+                            bVal = b.has_rsa_public_key ? 1 : 0;
+                            break;
                         default:
                             return 0;
                     }
@@ -3302,8 +3468,173 @@
 
                 // Reset to first page and re-filter
                 currentPage = 1;
-                filterUsers();
+                applyUserFilters();
             };
+
+            // Logs Tab Functionality
+            let logsAutoRefreshInterval;
+            let logsData = [];
+            
+            function loadLogs() {
+                const lines = document.getElementById('logLines').value || '100';
+                const level = document.getElementById('logLevelFilter').value || '';
+                const search = document.getElementById('logSearch').value || '';
+                
+                const params = new URLSearchParams({
+                    lines: lines,
+                    level: level,
+                    search: search
+                });
+                
+                fetchWithAuth(`/logs?${params}`)
+                    .then(response => {
+                        if (response.success) {
+                            logsData = response.logs;
+                            displayLogs(logsData);
+                            updateLogStats(response.total_lines, logsData.length);
+                            updateLastLogUpdate();
+                        } else {
+                            document.getElementById('logContainer').innerHTML = `
+                                <div class="text-center text-danger">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Error loading logs: ${response.error}
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById('logContainer').innerHTML = `
+                            <div class="text-center text-danger">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                Error loading logs: ${error.message}
+                            </div>
+                        `;
+                    });
+            }
+            
+            function displayLogs(logs) {
+                const container = document.getElementById('logContainer');
+                
+                if (logs.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            No log entries found with current filters
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                logs.forEach((log, index) => {
+                    const levelColor = {
+                        'DEBUG': '#6c757d',
+                        'INFO': '#17a2b8', 
+                        'WARNING': '#ffc107',
+                        'ERROR': '#dc3545',
+                        'CRITICAL': '#721c24'
+                    }[log.level] || '#fff';
+                    
+                    html += `
+                        <div class="log-entry" data-index="${index}" style="margin-bottom: 2px; cursor: pointer; padding: 2px 0; border-left: 3px solid ${levelColor}; padding-left: 8px;" 
+                             onmouseover="this.style.backgroundColor='#333'"
+                             onmouseout="this.style.backgroundColor='transparent'"
+                             onclick="showLogDetails(${index})">
+                            <span style="color: #888; font-size: 0.8em;">${log.timestamp}</span>
+                            <span style="color: ${levelColor}; font-weight: bold; margin: 0 8px;">[${log.level}]</span>
+                            <span style="color: #aaa; font-size: 0.9em;">${log.source}:</span>
+                            <span style="color: #fff; margin-left: 4px;">${log.message}</span>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            }
+            
+            function showLogDetails(index) {
+                const log = logsData[index];
+                const detailsDiv = document.getElementById('logDetails');
+                const contentDiv = document.getElementById('logDetailsContent');
+                
+                contentDiv.textContent = log.full_entry;
+                detailsDiv.style.display = 'block';
+                
+                // Scroll to details
+                detailsDiv.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            function updateLogStats(total, filtered) {
+                document.getElementById('logStats').textContent = `Lines: ${total} | Filtered: ${filtered}`;
+            }
+            
+            function updateLastLogUpdate() {
+                const now = new Date().toLocaleTimeString();
+                document.getElementById('lastLogUpdate').textContent = `Last updated: ${now}`;
+            }
+            
+            function setupLogsAutoRefresh() {
+                const autoRefreshCheckbox = document.getElementById('autoRefresh');
+                
+                if (autoRefreshCheckbox.checked) {
+                    logsAutoRefreshInterval = setInterval(loadLogs, 5000); // Refresh every 5 seconds
+                } else {
+                    if (logsAutoRefreshInterval) {
+                        clearInterval(logsAutoRefreshInterval);
+                        logsAutoRefreshInterval = null;
+                    }
+                }
+            }
+            
+            // Event listeners for logs tab
+            document.getElementById('refreshLogsBtn').addEventListener('click', loadLogs);
+            document.getElementById('autoRefresh').addEventListener('change', setupLogsAutoRefresh);
+            document.getElementById('logLevelFilter').addEventListener('change', loadLogs);
+            document.getElementById('logLines').addEventListener('change', loadLogs);
+            document.getElementById('logSearch').addEventListener('input', debounce(loadLogs, 500));
+            document.getElementById('scrollToTop').addEventListener('click', () => {
+                document.getElementById('logContainer').scrollTop = 0;
+            });
+            document.getElementById('scrollToBottom').addEventListener('click', () => {
+                const container = document.getElementById('logContainer');
+                container.scrollTop = container.scrollHeight;
+            });
+            document.getElementById('clearLogsBtn').addEventListener('click', () => {
+                document.getElementById('logContainer').innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Logs cleared. Click refresh to reload.
+                    </div>
+                `;
+                logsData = [];
+                updateLogStats(0, 0);
+            });
+            
+            // Load logs when logs tab is shown
+            document.getElementById('logs-tab').addEventListener('shown.bs.tab', function() {
+                loadLogs();
+                setupLogsAutoRefresh();
+            });
+            
+            // Stop auto-refresh when leaving logs tab
+            document.getElementById('logs-tab').addEventListener('hidden.bs.tab', function() {
+                if (logsAutoRefreshInterval) {
+                    clearInterval(logsAutoRefreshInterval);
+                    logsAutoRefreshInterval = null;
+                }
+            });
+            
+            // Debounce function for search input
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
 
             // Sorting functions for Roles table (declared in roles section)
 

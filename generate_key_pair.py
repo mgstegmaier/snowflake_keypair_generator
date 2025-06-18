@@ -5,13 +5,16 @@ import subprocess
 import getpass
 import tempfile
 
-def run_command(command):
-    """Run a shell command and return its output."""
+def run_command(command_args):
+    """Run a shell command safely using argument array."""
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        # Ensure command_args is a list for safe execution
+        if isinstance(command_args, str):
+            raise ValueError("Command must be provided as a list of arguments, not a string")
+        result = subprocess.run(command_args, check=True, capture_output=True, text=True)
         return result.stdout
     except subprocess.CalledProcessError as e:
-        print(f"Error executing command: {command}")
+        print(f"Error executing command: {command_args}")
         print(f"Error: {e.stderr}")
         raise
 
@@ -27,17 +30,34 @@ def generate_private_key(username, encrypted=True, passphrase=None):
             temp_path = temp.name
         
         try:
-            # Generate the key and encrypt it using the passphrase file
-            command = f"openssl genrsa 2048 | openssl pkcs8 -topk8 -v2 des3 -inform PEM -out {key_file} -passout file:{temp_path}"
-            run_command(command)
+            # Generate the key and encrypt it using the passphrase file - use two-step process
+            temp_private = f"{username}_temp_rsa.pem"
+            
+            # Step 1: Generate RSA key
+            run_command(['openssl', 'genrsa', '-out', temp_private, '2048'])
+            
+            # Step 2: Convert to PKCS8 format with encryption
+            run_command(['openssl', 'pkcs8', '-topk8', '-v2', 'des3', '-in', temp_private, 
+                       '-out', key_file, '-passout', f'file:{temp_path}'])
+            
+            # Clean up temporary unencrypted key
+            os.unlink(temp_private)
             print(f"✅ Encrypted private key generated: {key_file}")
         finally:
             # Clean up the temporary file
             os.unlink(temp_path)
     else:
         print("\nGenerating unencrypted private key...")
-        command = f"openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out {key_file} -nocrypt"
-        run_command(command)
+        temp_private = f"{username}_temp_rsa.pem"
+        
+        # Step 1: Generate RSA key
+        run_command(['openssl', 'genrsa', '-out', temp_private, '2048'])
+        
+        # Step 2: Convert to PKCS8 format without encryption
+        run_command(['openssl', 'pkcs8', '-topk8', '-in', temp_private, '-out', key_file, '-nocrypt'])
+        
+        # Clean up temporary key
+        os.unlink(temp_private)
         print(f"✅ Unencrypted private key generated: {key_file}")
 
 def generate_public_key(username, encrypted=False, passphrase=None):
@@ -53,14 +73,13 @@ def generate_public_key(username, encrypted=False, passphrase=None):
             temp_path = temp.name
         
         try:
-            command = f"openssl rsa -in {private_key} -passin file:{temp_path} -pubout -out {public_key}"
-            run_command(command)
+            run_command(['openssl', 'rsa', '-in', private_key, '-passin', f'file:{temp_path}', 
+                       '-pubout', '-out', public_key])
         finally:
             # Clean up the temporary file
             os.unlink(temp_path)
     else:
-        command = f"openssl rsa -in {private_key} -pubout -out {public_key}"
-        run_command(command)
+        run_command(['openssl', 'rsa', '-in', private_key, '-pubout', '-out', public_key])
     
     print(f"✅ Public key generated: {public_key}")
 
