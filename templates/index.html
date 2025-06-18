@@ -13,7 +13,7 @@
             --light-shade: #faf7f2;
             --light-accent: #7aacb8;
             --dark-shade: #a26d58;
-            --dark-accent: #605770;
+            --dark-accent: #50514F;
             
             /* Semantic Colors */
             --tuscany: #c56c30;        /* Primary */
@@ -213,9 +213,9 @@
 
         /* --- Dashboard Layout Additions --- */
         .app-container {
-            min-width: 960px;
+            min-width: 1300px;
             width: max-content;
-            max-width: 95vw;
+            max-width: 98vw;
             min-height: 90vh;
             display: flex;
             flex-direction: row;
@@ -408,6 +408,29 @@
         .pagination .page-link:focus {
             box-shadow: 0 0 0 0.25rem rgba(195, 108, 45, 0.25) !important;
         }
+        
+        /* Table auto-sizing and responsive styling */
+        .table {
+            table-layout: auto;
+            width: 100%;
+        }
+        
+        .table th, .table td {
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        
+        /* Allow action columns to be more flexible */
+        .table th:last-child, .table td:last-child {
+            white-space: normal;
+            min-width: 200px;
+        }
+        
+        /* Make dropdowns in action columns responsive */
+        .table .form-select {
+            min-width: 120px;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -590,7 +613,7 @@
                             <div class="col-md-3">
                                 <select class="form-select" id="userStatusFilter">
                                     <option value="">All Users</option>
-                                    <option value="active">Active Only</option>
+                                    <option value="active" selected>Active Only</option>
                                     <option value="disabled">Disabled Only</option>
                                     <option value="locked">Locked Only</option>
                                 </select>
@@ -607,10 +630,13 @@
                             <table class="table table-app-bg table-striped-app text-light table-hover" id="usersTable">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th>Username</th>
-                                        <th>Display Name</th>
-                                        <th>Status</th>
-                                        <th style="width: 220px;">Actions</th>
+                                        <th class="text-center" style="cursor: pointer;" onclick="sortUsersTable('name')">
+                                            Username <i class="bi bi-arrow-down-up" id="sort-users-name"></i>
+                                        </th>
+                                        <th class="text-center" style="cursor: pointer;" onclick="sortUsersTable('status')">
+                                            Status <i class="bi bi-arrow-down-up" id="sort-users-status"></i>
+                                        </th>
+                                        <th class="text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="usersTableBody">
@@ -674,13 +700,16 @@
                             <table class="table table-app-bg table-striped-app text-light table-hover" id="rolesTable">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th>Role Name</th>
-                                        <th>Type</th>
-                                        <th>Users Assigned</th>
-                                        <th>Granted Roles</th>
-                                        <th>Owner</th>
-                                        <th>Created</th>
-                                        <th style="width: 120px;">Actions</th>
+                                        <th class="text-center" style="cursor: pointer;" onclick="sortRolesTable('name')">
+                                            Role Name <i class="bi bi-arrow-down-up" id="sort-roles-name"></i>
+                                        </th>
+                                        <th class="text-center" style="cursor: pointer;" onclick="sortRolesTable('assigned_to_users')">
+                                            User Count <i class="bi bi-arrow-down-up" id="sort-roles-assigned_to_users"></i>
+                                        </th>
+                                        <th class="text-center" style="cursor: pointer;" onclick="sortRolesTable('created_on')">
+                                            Created <i class="bi bi-arrow-down-up" id="sort-roles-created_on"></i>
+                                        </th>
+                                        <th class="text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="rolesTableBody">
@@ -742,16 +771,13 @@
                             <table class="table table-app-bg table-striped-app text-light table-hover" id="keysTable">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th style="cursor: pointer;" onclick="sortKeysTable('name')">
-                                            Username <i class="bi bi-arrow-down-up" id="sort-name"></i>
+                                        <th class="text-center" style="cursor: pointer;" onclick="sortKeysTable('name')">
+                                            Username <i class="bi bi-arrow-down-up" id="sort-keys-name"></i>
                                         </th>
-                                        <th style="cursor: pointer;" onclick="sortKeysTable('display_name')">
-                                            Display Name <i class="bi bi-arrow-down-up" id="sort-display_name"></i>
+                                        <th class="text-center" style="cursor: pointer;" onclick="sortKeysTable('rsa_keys')">
+                                            RSA Keys <i class="bi bi-arrow-down-up" id="sort-keys-rsa_keys"></i>
                                         </th>
-                                        <th style="cursor: pointer;" onclick="sortKeysTable('rsa_keys')">
-                                            RSA Keys <i class="bi bi-arrow-down-up" id="sort-rsa_keys"></i>
-                                        </th>
-                                        <th style="width: 150px;">Actions</th>
+                                        <th class="text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="keysTableBody">
@@ -1904,12 +1930,18 @@
             let currentPage = 1;
             const usersPerPage = 20;
             
+            // Sorting functions for Users table
+            let usersSortField = 'name';
+            let usersSortDirection = 'asc';
+            
             // Load users when tab is shown
             document.getElementById('user-tab').addEventListener('shown.bs.tab', function () {
                 if (isAuthenticated) {
                     loadUsers();
                 }
             });
+
+            // Initialize default sorting for Users table (already initialized above)
 
             // Search and filter functionality
             document.getElementById('userSearch').addEventListener('input', filterUsers);
@@ -2030,14 +2062,20 @@
 
             async function loadUsers() {
                 const tableBody = document.getElementById('usersTableBody');
-                tableBody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="3" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
                 
                 try {
                     const users = await fetchWithAuth('/users');
                     allUsers = users;
-                    filterUsers();
+                    
+                    // Apply default sorting
+                    if (usersSortField) {
+                        window.sortUsersTable(usersSortField);
+                    } else {
+                        filterUsers();
+                    }
                 } catch (error) {
-                    tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error loading users: ${error.message}</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Error loading users: ${error.message}</td></tr>`;
                 }
             }
 
@@ -2064,6 +2102,17 @@
                 });
                 
                 displayUsers(filteredUsers);
+                
+                // Update sort indicators if we have a default sort
+                if (usersSortField) {
+                    const sortIcon = document.getElementById(`sort-users-${usersSortField}`);
+                    if (sortIcon) {
+                        document.querySelectorAll('[id^="sort-users-"]').forEach(icon => {
+                            icon.className = 'bi bi-arrow-down-up';
+                        });
+                        sortIcon.className = usersSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
+                    }
+                }
             }
 
             function displayUsers(users) {
@@ -2071,7 +2120,7 @@
                 const pagination = document.getElementById('usersPagination');
                 
                 if (users.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No users found</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="3" class="text-center">No users found</td></tr>';
                     pagination.style.display = 'none';
                     return;
                 }
@@ -2097,20 +2146,19 @@
                     return `
                         <tr>
                             <td><small><strong>${user.name}</strong></small></td>
-                            <td><small>${displayName}</small></td>
                             <td><small>${status}</small></td>
                             <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <button class="btn btn-brand btn-sm" onclick="showUserDetailsModal('${user.name}')" title="View Details">
-                                        <i class="bi bi-info-circle"></i> Details
+                                <div class="d-flex align-items-center gap-1">
+                                    <button class="btn btn-brand btn-sm" onclick="showUserDetailsModal('${user.name}')" style="white-space: nowrap;">
+                                        <i class="bi bi-info-circle me-1"></i>Details
                                     </button>
-                                    <select class="form-select form-select-sm" id="${dropdownId}" style="width: 120px;">
+                                    <select class="form-select form-select-sm" id="${dropdownId}">
                                         <option value="">Actions</option>
                                         ${user.snowflake_lock ? '<option value="unlock">Unlock User</option>' : ''}
                                         <option value="reset">Reset Password</option>
                                         <option value="unset">Unset Password</option>
                                     </select>
-                                    <button class="btn btn-primary btn-sm" onclick="executeUserAction('${user.name}', '${dropdownId}')" style="white-space: nowrap;">
+                                    <button class="btn btn-brand btn-sm" onclick="executeUserAction('${user.name}', '${dropdownId}')">
                                         Go
                                     </button>
                                 </div>
@@ -2122,11 +2170,11 @@
 
             function getUserStatus(user) {
                 if (user.disabled) {
-                    return '<span class="badge bg-secondary">Disabled</span>';
+                    return '<span class="badge bg-danger">Disabled</span>';
                 } else if (user.snowflake_lock) {
-                    return '<span class="badge bg-danger">Locked</span>';
+                    return '<span class="badge bg-warning">Locked</span>';
                 } else if (user.must_change_password) {
-                    return '<span class="badge bg-warning">Must Change Password</span>';
+                    return '<span class="badge bg-info">Must Change Password</span>';
                 } else {
                     return '<span class="badge bg-success">Active</span>';
                 }
@@ -2244,6 +2292,10 @@
             let filteredRolesData = [];
             let currentRolesPage = 1;
             const rolesPerPage = 20;
+            
+            // Sorting functions for Roles table
+            let rolesSortField = 'name';
+            let rolesSortDirection = 'asc';
 
             const roleSearch = document.getElementById('roleSearch');
             const roleTypeFilter = document.getElementById('roleTypeFilter');
@@ -2256,13 +2308,19 @@
 
             async function loadRolesData() {
                 try {
-                    rolesTableBody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+                    rolesTableBody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="spinner-border text-primary" role="status"></div></td></tr>';
                     const data = await fetchWithAuth('/roles/detailed');
                     rolesData = data;
-                    applyRolesFilters();
+                    
+                    // Apply default sorting
+                    if (rolesSortField) {
+                        window.sortRolesTable(rolesSortField);
+                    } else {
+                        applyRolesFilters();
+                    }
                 } catch (err) {
                     showToast('Failed to load roles: ' + err.message, 'error');
-                    rolesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Failed to load roles</td></tr>';
+                    rolesTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Failed to load roles</td></tr>';
                 }
             }
 
@@ -2291,6 +2349,17 @@
 
                 currentRolesPage = 1;
                 displayRolesPage();
+                
+                // Update sort indicators if we have a default sort
+                if (rolesSortField) {
+                    const sortIcon = document.getElementById(`sort-roles-${rolesSortField}`);
+                    if (sortIcon) {
+                        document.querySelectorAll('[id^="sort-roles-"]').forEach(icon => {
+                            icon.className = 'bi bi-arrow-down-up';
+                        });
+                        sortIcon.className = rolesSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
+                    }
+                }
             }
 
             function displayRolesPage() {
@@ -2300,14 +2369,14 @@
                 const totalPages = Math.ceil(filteredRolesData.length / rolesPerPage);
 
                 if (pageData.length === 0) {
-                    rolesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No roles found</td></tr>';
+                    rolesTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No roles found</td></tr>';
                     rolesPagination.style.display = 'none';
                     return;
                 }
 
                 rolesTableBody.innerHTML = pageData.map(role => {
                     const roleType = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(role.name) ? 'System' : 'Custom';
-                    const typeClass = roleType === 'System' ? 'badge bg-info' : 'badge bg-secondary';
+                    const typeClass = roleType === 'System' ? 'badge bg-primary' : 'badge bg-secondary';
                     const statusBadges = [];
                     
                     if (role.is_current) statusBadges.push('<span class="badge bg-success me-1">Current</span>');
@@ -2317,14 +2386,11 @@
                     return `
                         <tr>
                             <td>
-                                <strong class="text-light">${role.name}</strong>
+                                <small><strong>${role.name}</strong></small>
                                 ${statusBadges.length > 0 ? '<br>' + statusBadges.join('') : ''}
                             </td>
-                            <td><span class="${typeClass}">${roleType}</span></td>
-                            <td class="text-center text-light">${role.assigned_to_users || 0}</td>
-                            <td class="text-center text-light">${role.granted_roles || 0}</td>
-                            <td class="text-light">${role.owner || '-'}</td>
-                            <td class="text-light">${role.created_on ? new Date(role.created_on).toLocaleDateString() : '-'}</td>
+                            <td class="text-center"><small>${role.assigned_to_users || 0}</small></td>
+                            <td><small>${role.created_on ? new Date(role.created_on).toLocaleDateString() : '-'}</small></td>
                             <td>
                                 <button class="btn btn-brand btn-sm" onclick="showRoleDetails('${role.name}')">
                                     <i class="bi bi-info-circle"></i> Details
@@ -2622,6 +2688,8 @@
                 }
             });
 
+            // Initialize default sorting for Roles table (already initialized above)
+
             // Make showRoleDetails globally accessible
             window.showRoleDetails = showRoleDetails;
 
@@ -2631,7 +2699,7 @@
             let filteredKeysData = [];
             let currentKeysPage = 1;
             const keysPerPage = 20;
-            let keysSortField = '';
+            let keysSortField = 'name';
             let keysSortDirection = 'asc';
 
             // DOM elements for keys tab
@@ -2648,14 +2716,20 @@
                 if (!isAuthenticated) return;
                 
                 try {
-                    keysTableBody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
+                    keysTableBody.innerHTML = '<tr><td colspan="3" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
                     
                     const response = await fetchWithAuth('/keys/users');
                     keysData = response;
-                    applyKeysFilters();
+                    
+                    // Apply default sorting
+                    if (keysSortField) {
+                        sortKeysTable(keysSortField);
+                    } else {
+                        applyKeysFilters();
+                    }
                 } catch (err) {
                     console.error('Error loading keys data:', err);
-                    keysTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Failed to load keys data</td></tr>';
+                    keysTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Failed to load keys data</td></tr>';
                 }
             }
 
@@ -2685,6 +2759,17 @@
 
                 currentKeysPage = 1;
                 displayKeysPage();
+                
+                // Update sort indicators if we have a default sort
+                if (keysSortField) {
+                    const sortIcon = document.getElementById(`sort-keys-${keysSortField}`);
+                    if (sortIcon) {
+                        document.querySelectorAll('[id^="sort-keys-"]').forEach(icon => {
+                            icon.className = 'bi bi-arrow-down-up';
+                        });
+                        sortIcon.className = keysSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
+                    }
+                }
             }
 
             function displayKeysPage() {
@@ -2693,7 +2778,7 @@
                 const pageData = filteredKeysData.slice(startIndex, endIndex);
 
                 if (pageData.length === 0) {
-                    keysTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No users found</td></tr>';
+                    keysTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No users found</td></tr>';
                     keysPagination.style.display = 'none';
                     return;
                 }
@@ -2713,22 +2798,21 @@
                     return `
                         <tr>
                             <td>
-                                <strong class="text-light">${user.name}</strong>
+                                <small><strong>${user.name}</strong></small>
                                 ${statusBadges.length > 0 ? '<br>' + statusBadges.join('') : ''}
                             </td>
-                            <td class="text-light">${user.display_name || '-'}</td>
                             <td>${rsaKeyStatus}</td>
                             <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <button class="btn btn-brand btn-sm" onclick="showUserKeyDetails('${user.name}')" title="View Details">
-                                        <i class="bi bi-info-circle"></i> Details
+                                <div class="d-flex align-items-center gap-1">
+                                    <button class="btn btn-brand btn-sm" onclick="showUserKeyDetails('${user.name}')" style="white-space: nowrap;">
+                                        <i class="bi bi-info-circle me-1"></i>Details
                                     </button>
-                                    <select class="form-select form-select-sm" id="${dropdownId}" style="width: 120px;">
+                                    <select class="form-select form-select-sm" id="${dropdownId}">
                                         <option value="">Actions</option>
                                         <option value="set">Set/Rotate Key</option>
                                         <option value="remove">Remove Key</option>
                                     </select>
-                                    <button class="btn btn-primary btn-sm" onclick="executeKeyAction('${user.name}', '${dropdownId}')" style="white-space: nowrap;">
+                                    <button class="btn btn-brand btn-sm" onclick="executeKeyAction('${user.name}', '${dropdownId}')">
                                         Go
                                     </button>
                                 </div>
@@ -2949,11 +3033,11 @@
                 }
                 
                 // Update sort icons
-                document.querySelectorAll('[id^="sort-"]').forEach(icon => {
+                document.querySelectorAll('[id^="sort-keys-"]').forEach(icon => {
                     icon.className = 'bi bi-arrow-down-up';
                 });
                 
-                const sortIcon = document.getElementById(`sort-${field}`);
+                const sortIcon = document.getElementById(`sort-keys-${field}`);
                 if (sortIcon) {
                     sortIcon.className = keysSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
                 }
@@ -2971,13 +3055,9 @@
                             aVal = (a.display_name || '').toLowerCase();
                             bVal = (b.display_name || '').toLowerCase();
                             break;
-                        case 'key1':
-                            aVal = a.has_rsa_public_key_1 ? 1 : 0;
-                            bVal = b.has_rsa_public_key_1 ? 1 : 0;
-                            break;
-                        case 'key2':
-                            aVal = a.has_rsa_public_key_2 ? 1 : 0;
-                            bVal = b.has_rsa_public_key_2 ? 1 : 0;
+                        case 'rsa_keys':
+                            aVal = a.has_rsa_public_key ? 1 : 0;
+                            bVal = b.has_rsa_public_key ? 1 : 0;
                             break;
                         default:
                             return 0;
@@ -3175,6 +3255,116 @@
                 document.execCommand('copy');
                 showToast('Copied to clipboard', 'success');
             }
+
+            // Sorting functions for Users table (declared at top of users section)
+
+            window.sortUsersTable = function(field) {
+                if (usersSortField === field) {
+                    usersSortDirection = usersSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    usersSortField = field;
+                    usersSortDirection = 'asc';
+                }
+
+                // Update sort icons
+                document.querySelectorAll('[id^="sort-users-"]').forEach(icon => {
+                    icon.className = 'bi bi-arrow-down-up';
+                });
+                const currentIcon = document.getElementById(`sort-users-${field}`);
+                if (currentIcon) {
+                    currentIcon.className = usersSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
+                }
+
+                // Sort allUsers array
+                allUsers.sort((a, b) => {
+                    let aVal, bVal;
+                    switch (field) {
+                        case 'name':
+                            aVal = a.name || '';
+                            bVal = b.name || '';
+                            break;
+                        case 'display_name':
+                            aVal = a.display_name || '';
+                            bVal = b.display_name || '';
+                            break;
+                        case 'status':
+                            aVal = a.disabled ? 'disabled' : a.snowflake_lock ? 'locked' : a.must_change_password ? 'must_change' : 'active';
+                            bVal = b.disabled ? 'disabled' : b.snowflake_lock ? 'locked' : b.must_change_password ? 'must_change' : 'active';
+                            break;
+                        default:
+                            return 0;
+                    }
+
+                    if (aVal < bVal) return usersSortDirection === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return usersSortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                // Reset to first page and re-filter
+                currentPage = 1;
+                filterUsers();
+            };
+
+            // Sorting functions for Roles table (declared in roles section)
+
+            window.sortRolesTable = function(field) {
+                if (rolesSortField === field) {
+                    rolesSortDirection = rolesSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    rolesSortField = field;
+                    rolesSortDirection = 'asc';
+                }
+
+                // Update sort icons
+                document.querySelectorAll('[id^="sort-roles-"]').forEach(icon => {
+                    icon.className = 'bi bi-arrow-down-up';
+                });
+                const currentIcon = document.getElementById(`sort-roles-${field}`);
+                if (currentIcon) {
+                    currentIcon.className = rolesSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
+                }
+
+                // Sort rolesData array
+                rolesData.sort((a, b) => {
+                    let aVal, bVal;
+                    switch (field) {
+                        case 'name':
+                            aVal = a.name || '';
+                            bVal = b.name || '';
+                            break;
+                        case 'type':
+                            aVal = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(a.name) ? 'System' : 'Custom';
+                            bVal = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(b.name) ? 'System' : 'Custom';
+                            break;
+                        case 'assigned_to_users':
+                            aVal = parseInt(a.assigned_to_users) || 0;
+                            bVal = parseInt(b.assigned_to_users) || 0;
+                            break;
+                        case 'granted_roles':
+                            aVal = parseInt(a.granted_roles) || 0;
+                            bVal = parseInt(b.granted_roles) || 0;
+                            break;
+                        case 'owner':
+                            aVal = a.owner || '';
+                            bVal = b.owner || '';
+                            break;
+                        case 'created_on':
+                            aVal = new Date(a.created_on || 0);
+                            bVal = new Date(b.created_on || 0);
+                            break;
+                        default:
+                            return 0;
+                    }
+
+                    if (aVal < bVal) return rolesSortDirection === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return rolesSortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                // Reset to first page and re-filter
+                currentRolesPage = 1;
+                applyRolesFilters();
+            };
         });
     </script>
 </body>
