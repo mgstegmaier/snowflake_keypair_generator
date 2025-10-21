@@ -2064,12 +2064,7 @@
             let usersSortField = 'name';
             let usersSortDirection = 'asc';
             
-            // Load users when tab is shown
-            document.getElementById('users-tab').addEventListener('shown.bs.tab', function () {
-                if (isAuthenticated) {
-                    loadUsers();
-                }
-            });
+            // Users data will be pre-loaded on login, manual refresh available via refresh button
 
             // Initialize default sorting for Users table (already initialized above)
 
@@ -2903,12 +2898,7 @@
                 }
             });
 
-            // Load roles when tab is first shown
-            document.getElementById('roles-tab').addEventListener('shown.bs.tab', () => {
-                if (rolesData.length === 0) {
-                    loadRolesData();
-                }
-            });
+            // Roles data will be pre-loaded on login, manual refresh available via refresh button
 
             // Initialize default sorting for Roles table (already initialized above)
 
