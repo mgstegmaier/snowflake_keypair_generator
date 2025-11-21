@@ -646,10 +646,16 @@
                                     <option value="sso_only">SSO Only</option>
                                 </select>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-2 d-flex align-items-center gap-2">
                                 <button class="btn btn-brand" id="refreshUsers">
                                     <i class="bi bi-arrow-clockwise"></i> Refresh
                                 </button>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="usersAutoRefresh">
+                                    <label class="form-check-label" for="usersAutoRefresh">
+                                        Auto-refresh
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -807,6 +813,10 @@
                                     <label class="form-check-label" for="readGrantSchema">Grant Schema-Level Read Only</label>
                                 </div>
                                 <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="permType" id="readGrantDb" value="read_grant_database">
+                                    <label class="form-check-label" for="readGrantDb">Grant Database-Wide Read Only</label>
+                                </div>
+                                <div class="form-check">
                                     <input class="form-check-input" type="radio" name="permType" id="readRevokeSchema" value="read_revoke_schema">
                                     <label class="form-check-label" for="readRevokeSchema">Revoke Schema-Level Permissions</label>
                                 </div>
@@ -818,7 +828,7 @@
                                     <label class="form-check-label" for="rwGrantSchema">Grant Schema-Level Permissions</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="permType" id="rwGrantDb" value="rw_grant_dbwide">
+                                    <input class="form-check-input" type="radio" name="permType" id="rwGrantDb" value="readwrite_grant_database">
                                     <label class="form-check-label" for="rwGrantDb">Grant Database-Wide Permissions</label>
                                 </div>
                                 <div class="form-check">
@@ -826,7 +836,7 @@
                                     <label class="form-check-label" for="rwRevokeSchema">Revoke Schema-Level Permissions</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="permType" id="rwRevokeDb" value="rw_revoke_dbwide">
+                                    <input class="form-check-input" type="radio" name="permType" id="rwRevokeDb" value="readwrite_revoke_database">
                                     <label class="form-check-label" for="rwRevokeDb">Revoke Database-Wide Permissions</label>
                                 </div>
                             </div>
@@ -1811,9 +1821,25 @@
 
             function updateGrantState() {
                 if (!grantBtn) return;
-                const ready = gpDbSel.value && gpSchemaSel.value && gpRoleSel.value && gpWarehouseSel.value;
+                // Check if database-wide permission is selected
+                const selectedPerm = document.querySelector('input[name="permType"]:checked');
+                const isDatabaseWide = selectedPerm && (selectedPerm.value.includes('_database') || selectedPerm.value === 'read_grant_database' || selectedPerm.value === 'readwrite_grant_database');
+                
+                // For database-wide grants, schema is not required
+                const schemaRequired = !isDatabaseWide;
+                gpSchemaSel.required = schemaRequired;
+                
+                const ready = gpDbSel.value && 
+                             (isDatabaseWide || gpSchemaSel.value) && 
+                             gpRoleSel.value && 
+                             gpWarehouseSel.value;
                 grantBtn.disabled = !ready;
             }
+            
+            // Update grant state when permission type changes
+            document.querySelectorAll('input[name="permType"]').forEach(radio => {
+                radio.addEventListener('change', updateGrantState);
+            });
 
             async function loadDatabases() {
                 gpDbSel.disabled = true;
@@ -1884,12 +1910,15 @@
 
             document.getElementById('grantForm').addEventListener('submit', e => {
                 e.preventDefault();
+                const selectedPerm = document.querySelector('input[name="permType"]:checked');
+                const isDatabaseWide = selectedPerm && (selectedPerm.value.includes('_database') || selectedPerm.value === 'read_grant_database' || selectedPerm.value === 'readwrite_grant_database');
+                
                 const payload = {
                     db: gpDbSel.value,
-                    schema: gpSchemaSel.value,
+                    schema: isDatabaseWide ? '' : gpSchemaSel.value,
                     role: gpRoleSel.value,
                     warehouse: gpWarehouseSel.value,
-                    perm_type: document.querySelector('input[name="permType"]:checked').value
+                    perm_type: selectedPerm.value
                 };
                 (async () => {
                     try {
@@ -2059,6 +2088,7 @@
             let allUsers = [];
             let currentPage = 1;
             const usersPerPage = 20;
+            let usersAutoRefreshInterval;
             
             // Sorting functions for Users table
             let usersSortField = 'name';
@@ -2074,6 +2104,36 @@
             document.getElementById('userKeyFilter').addEventListener('change', applyUserFilters);
             document.getElementById('userAuthFilter').addEventListener('change', applyUserFilters);
             document.getElementById('refreshUsers').addEventListener('click', loadUsers);
+            
+            // Auto-refresh functionality for users tab
+            function setupUsersAutoRefresh() {
+                const autoRefreshCheckbox = document.getElementById('usersAutoRefresh');
+                
+                if (autoRefreshCheckbox.checked) {
+                    usersAutoRefreshInterval = setInterval(loadUsers, 120000); // Refresh every 2 minutes
+                } else {
+                    if (usersAutoRefreshInterval) {
+                        clearInterval(usersAutoRefreshInterval);
+                        usersAutoRefreshInterval = null;
+                    }
+                }
+            }
+            
+            document.getElementById('usersAutoRefresh').addEventListener('change', setupUsersAutoRefresh);
+            
+            // Load users when users tab is shown
+            document.getElementById('users-tab').addEventListener('shown.bs.tab', function() {
+                loadUsers();
+                setupUsersAutoRefresh();
+            });
+            
+            // Stop auto-refresh when leaving users tab
+            document.getElementById('users-tab').addEventListener('hidden.bs.tab', function() {
+                if (usersAutoRefreshInterval) {
+                    clearInterval(usersAutoRefreshInterval);
+                    usersAutoRefreshInterval = null;
+                }
+            });
 
             // Modal functionality
             const unlockUserModal = new bootstrap.Modal(document.getElementById('unlockUserModal'));

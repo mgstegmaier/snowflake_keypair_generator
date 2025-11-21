@@ -439,11 +439,12 @@ def grant_permissions():
 
         proc_map = {
             'read_grant_schema': ('UPLAND_MAINTENANCE.SECURITY.sp_grant_read_perms', [db, schema, role]),
+            'read_grant_database': ('UPLAND_MAINTENANCE.SECURITY.sp_grant_read_perms', [db, '', role, True]),
             'read_revoke_schema': ('UPLAND_MAINTENANCE.SECURITY.sp_revoke_read_perms', [db, schema, role]),
             'readwrite_grant_schema': ('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, schema, role, False]),
             'readwrite_revoke_schema': ('UPLAND_MAINTENANCE.SECURITY.sp_revoke_readwrite_perms', [db, schema, role, False]),
-            'readwrite_grant_database': ('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, None, role, True]),
-            'readwrite_revoke_database': ('UPLAND_MAINTENANCE.SECURITY.sp_revoke_readwrite_perms', [db, None, role, True])
+            'readwrite_grant_database': ('UPLAND_MAINTENANCE.SECURITY.sp_grant_readwrite_perms', [db, '', role, True]),
+            'readwrite_revoke_database': ('UPLAND_MAINTENANCE.SECURITY.sp_revoke_readwrite_perms', [db, '', role, True])
         }
 
         if perm_type not in proc_map:
@@ -995,7 +996,37 @@ def error_response(exc: Exception, status: int = 500):
 
 # -------------------------------------------------------------------------
 
+def kill_port_processes(port):
+    """Kill all processes using the specified port."""
+    try:
+        # Use lsof to find processes using the port and kill them
+        result = subprocess.run(
+            ['lsof', '-ti', f':{port}'],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.stdout.strip():
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                if pid:
+                    try:
+                        subprocess.run(['kill', '-9', pid], check=False)
+                        logger.info(f'Killed process {pid} using port {port}')
+                    except Exception as e:
+                        logger.warning(f'Failed to kill process {pid}: {e}')
+        else:
+            logger.info(f'No processes found using port {port}')
+    except FileNotFoundError:
+        # lsof might not be available on all systems
+        logger.warning('lsof command not found. Skipping port cleanup.')
+    except Exception as e:
+        logger.warning(f'Error checking/killing processes on port {port}: {e}')
+
 if __name__ == '__main__':
+    # Kill any existing processes on port 5001
+    kill_port_processes(5001)
+    
     # Open browser after a short delay
     Timer(1.5, open_browser).start()
     # Run on port 5001 to match OAuth redirect URI
