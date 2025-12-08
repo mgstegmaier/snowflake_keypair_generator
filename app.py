@@ -10,15 +10,63 @@ from functools import wraps
 import backend.snowflake_client as sfc
 from dotenv import load_dotenv
 from backend import security as sec
+from backend import audit
 import time
 import logging
+import datetime
 from snowflake.connector import errors as sf_errors
 
 load_dotenv()
 
 # ---------- Logging setup ----------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+from logging.handlers import RotatingFileHandler
+
+# Create logs directory if it doesn't exist
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Configure root logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+# Add file handler for application logs
+app_log_file = os.path.join(LOG_DIR, 'app.log')
+file_handler = RotatingFileHandler(
+    app_log_file,
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5
+)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+
+# Add error log file handler
+error_log_file = os.path.join(LOG_DIR, 'error.log')
+error_handler = RotatingFileHandler(
+    error_log_file,
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5
+)
+error_handler.setLevel(logging.ERROR)
+error_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+
 logger = logging.getLogger('snowflake-admin-app')
+logger.addHandler(file_handler)
+logger.addHandler(error_handler)
+
+# Configure Werkzeug (Flask's WSGI server) logging
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_log_file = os.path.join(LOG_DIR, 'access.log')
+werkzeug_handler = RotatingFileHandler(
+    werkzeug_log_file,
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5
+)
+werkzeug_handler.setLevel(logging.INFO)
+werkzeug_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+werkzeug_logger.addHandler(werkzeug_handler)
 
 app = Flask(__name__)
 # Use environment variable for secret key
@@ -420,6 +468,8 @@ def get_role_grants(role_name):
 def grant_permissions():
     payload = request.json or {}
     ensure_sf_conn()
+    user, user_role = get_audit_identity()
+    
     try:
         perm_type = payload.get('perm_type')
         db = payload.get('db')
@@ -454,6 +504,24 @@ def grant_permissions():
         print(f"Executing stored procedure: {proc_name} with args: {args}")
         
         result = sfc.client.call_stored_procedure(proc_name, args)
+        
+        # Log successful action
+        action_name = 'permission_grant' if 'grant' in perm_type else 'permission_revoke'
+        audit.log_action(
+            action=action_name,
+            user=user,
+            role=user_role,
+            target_type='permission',
+            target_id=f"{db}.{schema if schema else 'DATABASE'}.{role}",
+            details={
+                'permission_type': perm_type,
+                'database': db,
+                'schema': schema or 'DATABASE-WIDE',
+                'target_role': role
+            },
+            success=True
+        )
+        
         return jsonify({'success': True, 'message': f'Permissions {"granted" if "grant" in perm_type else "revoked"} successfully', 'details': result})
     except Exception as e:
         error_msg = str(e)
@@ -512,6 +580,8 @@ def get_user_key_details(username):
 def set_user_public_key(username):
     """Set or update RSA public key for a user using enhanced stored procedure."""
     ensure_sf_conn()
+    user, role = get_audit_identity()
+    
     try:
         payload = request.json or {}
         public_key = payload.get('public_key')
@@ -538,12 +608,44 @@ def set_user_public_key(username):
             )
         
         if result['success']:
+            # Log successful action
+            audit.log_action(
+                action='key_set',
+                user=user,
+                role=role,
+                target_type='user',
+                target_id=username,
+                details={'key_number': key_number, 'unset_password': unset_password},
+                success=True
+            )
             return jsonify(result)
         else:
+            # Log failed action
+            audit.log_action(
+                action='key_set',
+                user=user,
+                role=role,
+                target_type='user',
+                target_id=username,
+                details={'key_number': key_number},
+                success=False,
+                error_message=result.get('error', 'Unknown error')
+            )
             return jsonify(result), 400
             
     except Exception as e:
         error_msg = str(e)
+        # Log failed action
+        audit.log_action(
+            action='key_set',
+            user=user,
+            role=role,
+            target_type='user',
+            target_id=username,
+            details={},
+            success=False,
+            error_message=error_msg
+        )
         if "does not exist" in error_msg.lower():
             return jsonify({
                 'success': False, 
@@ -556,6 +658,8 @@ def set_user_public_key(username):
 def unset_user_public_key(username):
     """Remove RSA public key from a user."""
     ensure_sf_conn()
+    user, role = get_audit_identity()
+    
     try:
         payload = request.json or {}
         key_number = payload.get('key_number', 1)
@@ -566,12 +670,44 @@ def unset_user_public_key(username):
         result = sfc.client.unset_user_public_key(username, key_number)
         
         if result['success']:
+            # Log successful action
+            audit.log_action(
+                action='key_unset',
+                user=user,
+                role=role,
+                target_type='user',
+                target_id=username,
+                details={'key_number': key_number},
+                success=True
+            )
             return jsonify(result)
         else:
+            # Log failed action
+            audit.log_action(
+                action='key_unset',
+                user=user,
+                role=role,
+                target_type='user',
+                target_id=username,
+                details={'key_number': key_number},
+                success=False,
+                error_message=result.get('error', 'Unknown error')
+            )
             return jsonify(result), 400
             
     except Exception as e:
         error_msg = str(e)
+        # Log failed action
+        audit.log_action(
+            action='key_unset',
+            user=user,
+            role=role,
+            target_type='user',
+            target_id=username,
+            details={},
+            success=False,
+            error_message=error_msg
+        )
         if "does not exist" in error_msg.lower():
             return jsonify({
                 'success': False, 
@@ -605,6 +741,10 @@ def list_users():
 def unlock_user(username):
     """Unlock a user account."""
     ensure_sf_conn()
+    ident = oauth.current_identity()
+    user = ident.get('user', 'unknown') if ident else 'unknown'
+    role = ident.get('role', 'unknown') if ident else 'unknown'
+    
     try:
         # Set warehouse before calling stored procedure
         if hasattr(sfc.client, '_warehouse') and sfc.client._warehouse:
@@ -614,6 +754,18 @@ def unlock_user(username):
             'UPLAND_MAINTENANCE.SECURITY.sp_unlock_user', 
             [username]
         )
+        
+        # Log successful action
+        audit.log_action(
+            action='user_unlock',
+            user=user,
+            role=role,
+            target_type='user',
+            target_id=username,
+            details={'result': result},
+            success=True
+        )
+        
         return jsonify({
             "success": True, 
             "message": f"User {username} unlocked successfully",
@@ -622,6 +774,18 @@ def unlock_user(username):
     except Exception as e:
         error_msg = str(e)
         print(f"Error unlocking user {username}: {error_msg}")
+        
+        # Log failed action
+        audit.log_action(
+            action='user_unlock',
+            user=user,
+            role=role,
+            target_type='user',
+            target_id=username,
+            details={},
+            success=False,
+            error_message=error_msg
+        )
         
         if "does not exist" in error_msg.lower():
             return jsonify({
@@ -636,6 +800,8 @@ def unlock_user(username):
 def reset_user_password(username):
     """Reset a user's password."""
     ensure_sf_conn()
+    user, role = get_audit_identity()
+    
     try:
         payload = request.json or {}
         new_password = payload.get('new_password')
@@ -651,6 +817,18 @@ def reset_user_password(username):
             'UPLAND_MAINTENANCE.SECURITY.sp_reset_password', 
             [username, new_password]
         )
+        
+        # Log successful action
+        audit.log_action(
+            action='password_reset',
+            user=user,
+            role=role,
+            target_type='user',
+            target_id=username,
+            details={},
+            success=True
+        )
+        
         return jsonify({
             "success": True, 
             "message": f"Password reset for user {username}",
@@ -659,6 +837,18 @@ def reset_user_password(username):
     except Exception as e:
         error_msg = str(e)
         print(f"Error resetting password for user {username}: {error_msg}")
+        
+        # Log failed action
+        audit.log_action(
+            action='password_reset',
+            user=user,
+            role=role,
+            target_type='user',
+            target_id=username,
+            details={},
+            success=False,
+            error_message=error_msg
+        )
         
         if "does not exist" in error_msg.lower():
             return jsonify({
@@ -673,6 +863,8 @@ def reset_user_password(username):
 def unset_user_password(username):
     """Unset a user's password."""
     ensure_sf_conn()
+    user, role = get_audit_identity()
+    
     try:
         # Set warehouse before calling stored procedure
         if hasattr(sfc.client, '_warehouse') and sfc.client._warehouse:
@@ -682,6 +874,18 @@ def unset_user_password(username):
             'UPLAND_MAINTENANCE.SECURITY.sp_unset_password', 
             [username]
         )
+        
+        # Log successful action
+        audit.log_action(
+            action='password_unset',
+            user=user,
+            role=role,
+            target_type='user',
+            target_id=username,
+            details={},
+            success=True
+        )
+        
         return jsonify({
             "success": True, 
             "message": f"Password unset for user {username}",
@@ -690,6 +894,18 @@ def unset_user_password(username):
     except Exception as e:
         error_msg = str(e)
         print(f"Error unsetting password for user {username}: {error_msg}")
+        
+        # Log failed action
+        audit.log_action(
+            action='password_unset',
+            user=user,
+            role=role,
+            target_type='user',
+            target_id=username,
+            details={},
+            success=False,
+            error_message=error_msg
+        )
         
         if "does not exist" in error_msg.lower():
             return jsonify({
@@ -710,88 +926,159 @@ def clear_cache():
     except Exception as e:
         return error_response(e)
 
+def parse_log_line(line):
+    """Parse a log line into structured components."""
+    import re
+    # Try to match standard log format: YYYY-MM-DD HH:MM:SS LEVEL logger_name: message
+    # Format: 2024-01-01 12:00:00 INFO snowflake-admin-app: message here
+    pattern = r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\w+)\s+([^:]+):\s+(.+)$'
+    match = re.match(pattern, line.strip())
+    
+    if match:
+        timestamp_str, level, source, message = match.groups()
+        # Convert timestamp to include milliseconds for consistency
+        try:
+            timestamp = datetime.datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+            timestamp_str = timestamp.strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
+        except:
+            pass
+        return {
+            'timestamp': timestamp_str,
+            'level': level,
+            'source': source.strip(),
+            'message': message,
+            'full_entry': line.strip()
+        }
+    
+    # Fallback: try to extract at least timestamp and level
+    parts = line.strip().split(' ', 3)
+    if len(parts) >= 3:
+        timestamp_str = f"{parts[0]} {parts[1]}"
+        level = parts[2] if len(parts) > 2 else 'INFO'
+        message = parts[3] if len(parts) > 3 else line.strip()
+        source = 'unknown'
+        return {
+            'timestamp': timestamp_str,
+            'level': level,
+            'source': source,
+            'message': message,
+            'full_entry': line.strip()
+        }
+    
+    # Last resort: return as-is
+    return {
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3],
+        'level': 'INFO',
+        'source': 'unknown',
+        'message': line.strip(),
+        'full_entry': line.strip()
+    }
+
+def read_log_file(filepath, max_lines=None):
+    """Read log file and return parsed entries."""
+    entries = []
+    if not os.path.exists(filepath):
+        return entries
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+            # Read from end of file (most recent logs first)
+            if max_lines:
+                lines = lines[-max_lines:]
+            
+            for line in lines:
+                if line.strip():
+                    parsed = parse_log_line(line)
+                    if parsed:
+                        entries.append(parsed)
+    except Exception as e:
+        logger.error(f"Error reading log file {filepath}: {e}")
+    
+    return entries
+
 @app.route('/logs')
 @require_oauth
 def get_server_logs():
-    """Get server logs with filtering options."""
+    """Get server logs with filtering options from actual log files."""
     try:
         lines = request.args.get('lines', '100', type=int)
         level_filter = request.args.get('level', '')
         search_term = request.args.get('search', '')
         
-        # Get log entries
+        # Get log entries from actual log files
         log_entries = []
         
         try:
-            import datetime
-            current_time = datetime.datetime.now()
-            
-            # For a real implementation, you would read from actual log files
-            # For now, we'll provide sample data that demonstrates the functionality
-            log_levels = ['INFO', 'DEBUG', 'WARNING', 'ERROR']
-            log_sources = ['app', 'snowflake.connector', 'werkzeug', 'oauth']
-            
-            sample_messages = [
-                "Successfully connected to Snowflake",
-                "Processing user authentication", 
-                "Loading user data from cache",
-                "Database query completed in 0.5s",
-                "OAuth token refreshed",
-                "127.0.0.1 - - [GET /auth/status HTTP/1.1] 200 -",
-                "User management data loaded: 75 users",
-                "Role privileges query executed",
-                "Cache hit for user lookup",
-                "Warehouse context set successfully",
-                "Starting list_users_from_view method",
-                "View query successful! Retrieved 75 rows",
-                "Single view call loaded 75 users",
-                "Current context - Role: SYSADMIN, User: ADMIN_MSTEGMAIER",
-                "Finding available warehouses",
-                "Successfully set warehouse to UPLAND_ENGINEERING_WH"
+            # Read from multiple log sources
+            log_files = [
+                ('app.log', 'app'),
+                ('error.log', 'app'),
+                ('access.log', 'werkzeug')
             ]
             
-            for i in range(lines):
-                timestamp = (current_time - datetime.timedelta(minutes=i*2)).strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
-                level = log_levels[i % len(log_levels)]
-                source = log_sources[i % len(log_sources)]
-                message = sample_messages[i % len(sample_messages)]
-                
-                # Make some entries errors/warnings for realism
-                if i % 15 == 0:
-                    level = 'ERROR'
-                    message = "Connection timeout to database"
-                elif i % 8 == 0:
-                    level = 'WARNING'
-                    message = "Slow query detected (>2s): SELECT * FROM V_USER_KEY_MANAGEMENT"
-                
-                log_entry = f"{timestamp} {level} {source}: {message}"
-                
-                # Apply filters
-                if level_filter and level != level_filter:
-                    continue
-                if search_term and search_term.lower() not in log_entry.lower():
-                    continue
-                    
-                log_entries.append({
-                    'timestamp': timestamp,
-                    'level': level,
-                    'source': source,
-                    'message': message,
-                    'full_entry': log_entry
-                })
+            all_entries = []
+            for log_filename, source_prefix in log_files:
+                log_filepath = os.path.join(LOG_DIR, log_filename)
+                entries = read_log_file(log_filepath, max_lines=lines * 2)  # Read more to account for filtering
+                all_entries.extend(entries)
             
-            # Sort by timestamp (newest first)
-            log_entries.sort(key=lambda x: x['timestamp'], reverse=True)
-            log_entries = log_entries[:lines]  # Limit to requested number of lines
+            # If no log files exist yet, provide a helpful message
+            if not all_entries:
+                # Check if log directory exists but files are empty
+                if os.path.exists(LOG_DIR):
+                    log_entries = [{
+                        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3],
+                        'level': 'INFO',
+                        'source': 'app',
+                        'message': 'No log entries found. Logs will appear here as the application runs.',
+                        'full_entry': 'INFO app: No log entries found. Logs will appear here as the application runs.'
+                    }]
+                else:
+                    log_entries = [{
+                        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3],
+                        'level': 'INFO',
+                        'source': 'app',
+                        'message': 'Log directory not found. Logs will be created automatically.',
+                        'full_entry': 'INFO app: Log directory not found. Logs will be created automatically.'
+                    }]
+            else:
+                # Apply filters
+                for entry in all_entries:
+                    # Level filter
+                    if level_filter and entry.get('level', '').upper() != level_filter.upper():
+                        continue
+                    
+                    # Search filter
+                    if search_term:
+                        search_lower = search_term.lower()
+                        if (search_lower not in entry.get('message', '').lower() and
+                            search_lower not in entry.get('source', '').lower() and
+                            search_lower not in entry.get('full_entry', '').lower()):
+                            continue
+                    
+                    log_entries.append(entry)
+                
+                # Sort by timestamp (newest first)
+                try:
+                    log_entries.sort(key=lambda x: datetime.datetime.strptime(
+                        x['timestamp'].split(',')[0], '%Y-%m-%d %H:%M:%S'
+                    ), reverse=True)
+                except:
+                    # If timestamp parsing fails, keep original order
+                    pass
+                
+                # Limit to requested number of lines
+                log_entries = log_entries[:lines]
             
         except Exception as e:
-            logger.error(f"Error generating log entries: {e}")
+            logger.error(f"Error reading log entries: {e}")
             log_entries = [{
                 'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3],
                 'level': 'ERROR',
                 'source': 'app',
                 'message': f'Failed to read server logs: {str(e)}',
-                'full_entry': f'ERROR: Failed to read server logs: {str(e)}'
+                'full_entry': f'ERROR app: Failed to read server logs: {str(e)}'
             }]
         
         return jsonify({
@@ -814,6 +1101,278 @@ def get_server_logs():
             'logs': [],
             'total_lines': 0
         }), 500
+
+def export_to_csv(data, headers):
+    """Convert data to CSV format."""
+    import csv
+    import io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for row in data:
+        writer.writerow([row.get(h, '') for h in headers])
+    return output.getvalue()
+
+def export_to_json(data):
+    """Convert data to JSON format."""
+    import json
+    return json.dumps(data, indent=2, default=str)
+
+@app.route('/export/users')
+@require_oauth
+def export_users():
+    """Export users data in CSV or JSON format."""
+    format_type = request.args.get('format', 'json').lower()
+    ensure_sf_conn()
+    try:
+        users = sfc.client.list_users_with_keys_optimized()
+        
+        if format_type == 'csv':
+            # Flatten user data for CSV
+            headers = ['name', 'login_name', 'display_name', 'email', 'disabled', 
+                      'snowflake_lock', 'must_change_password', 'has_rsa_public_key',
+                      'has_password', 'has_mfa', 'default_role', 'default_warehouse',
+                      'created_on', 'last_success_login']
+            csv_data = []
+            for user in users:
+                csv_data.append({
+                    'name': user.get('name', ''),
+                    'login_name': user.get('login_name', ''),
+                    'display_name': user.get('display_name', ''),
+                    'email': user.get('email', ''),
+                    'disabled': 'Yes' if user.get('disabled') else 'No',
+                    'snowflake_lock': 'Yes' if user.get('snowflake_lock') else 'No',
+                    'must_change_password': 'Yes' if user.get('must_change_password') else 'No',
+                    'has_rsa_public_key': 'Yes' if user.get('has_rsa_public_key') else 'No',
+                    'has_password': 'Yes' if user.get('has_password') else 'No',
+                    'has_mfa': 'Yes' if user.get('has_mfa') else 'No',
+                    'default_role': user.get('default_role', ''),
+                    'default_warehouse': user.get('default_warehouse', ''),
+                    'created_on': str(user.get('created_on', '')),
+                    'last_success_login': str(user.get('last_success_login', ''))
+                })
+            csv_content = export_to_csv(csv_data, headers)
+            from flask import Response
+            return Response(
+                csv_content,
+                mimetype='text/csv',
+                headers={'Content-Disposition': f'attachment; filename=users_export_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+            )
+        else:
+            # JSON export
+            json_content = export_to_json(users)
+            from flask import Response
+            return Response(
+                json_content,
+                mimetype='application/json',
+                headers={'Content-Disposition': f'attachment; filename=users_export_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.json'}
+            )
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/export/roles')
+@require_oauth
+def export_roles():
+    """Export roles data in CSV or JSON format."""
+    format_type = request.args.get('format', 'json').lower()
+    ensure_sf_conn()
+    try:
+        roles = sfc.client.list_roles_detailed()
+        
+        if format_type == 'csv':
+            headers = ['name', 'type', 'owner', 'comment', 'created_on']
+            csv_data = []
+            for role in roles:
+                csv_data.append({
+                    'name': role.get('name', ''),
+                    'type': role.get('type', ''),
+                    'owner': role.get('owner', ''),
+                    'comment': role.get('comment', ''),
+                    'created_on': str(role.get('created_on', ''))
+                })
+            csv_content = export_to_csv(csv_data, headers)
+            from flask import Response
+            return Response(
+                csv_content,
+                mimetype='text/csv',
+                headers={'Content-Disposition': f'attachment; filename=roles_export_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+            )
+        else:
+            json_content = export_to_json(roles)
+            from flask import Response
+            return Response(
+                json_content,
+                mimetype='application/json',
+                headers={'Content-Disposition': f'attachment; filename=roles_export_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.json'}
+            )
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/export/logs')
+@require_oauth
+def export_logs():
+    """Export logs data in text or JSON format."""
+    format_type = request.args.get('format', 'json').lower()
+    lines = request.args.get('lines', '1000', type=int)
+    level_filter = request.args.get('level', '')
+    search_term = request.args.get('search', '')
+    
+    try:
+        # Reuse the log reading logic
+        log_entries = []
+        log_files = [
+            ('app.log', 'app'),
+            ('error.log', 'app'),
+            ('access.log', 'werkzeug')
+        ]
+        
+        all_entries = []
+        for log_filename, source_prefix in log_files:
+            log_filepath = os.path.join(LOG_DIR, log_filename)
+            entries = read_log_file(log_filepath, max_lines=lines * 2)
+            all_entries.extend(entries)
+        
+        # Apply filters
+        for entry in all_entries:
+            if level_filter and entry.get('level', '').upper() != level_filter.upper():
+                continue
+            if search_term:
+                search_lower = search_term.lower()
+                if (search_lower not in entry.get('message', '').lower() and
+                    search_lower not in entry.get('source', '').lower() and
+                    search_lower not in entry.get('full_entry', '').lower()):
+                    continue
+            log_entries.append(entry)
+        
+        # Sort by timestamp (newest first)
+        try:
+            log_entries.sort(key=lambda x: datetime.datetime.strptime(
+                x['timestamp'].split(',')[0], '%Y-%m-%d %H:%M:%S'
+            ), reverse=True)
+        except:
+            pass
+        
+        log_entries = log_entries[:lines]
+        
+        if format_type == 'txt' or format_type == 'text':
+            # Text export (one line per log entry)
+            text_content = '\n'.join([entry.get('full_entry', '') for entry in log_entries])
+            from flask import Response
+            return Response(
+                text_content,
+                mimetype='text/plain',
+                headers={'Content-Disposition': f'attachment; filename=logs_export_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.txt'}
+            )
+        else:
+            # JSON export
+            json_content = export_to_json(log_entries)
+            from flask import Response
+            return Response(
+                json_content,
+                mimetype='application/json',
+                headers={'Content-Disposition': f'attachment; filename=logs_export_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.json'}
+            )
+    except Exception as e:
+        return error_response(e)
+
+@app.route('/audit/logs')
+@require_oauth
+def get_audit_logs():
+    """Get audit log entries with optional filtering."""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        action_filter = request.args.get('action')
+        user_filter = request.args.get('user')
+        max_entries = request.args.get('max_entries', '1000', type=int)
+        
+        entries = audit.read_audit_logs(
+            start_date=start_date,
+            end_date=end_date,
+            action_filter=action_filter,
+            user_filter=user_filter,
+            max_entries=max_entries
+        )
+        
+        return jsonify({
+            'success': True,
+            'entries': entries,
+            'total_entries': len(entries),
+            'filters': {
+                'start_date': start_date,
+                'end_date': end_date,
+                'action': action_filter,
+                'user': user_filter
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error fetching audit logs: {e}")
+        return error_response(e)
+
+@app.route('/audit/statistics')
+@require_oauth
+def get_audit_statistics():
+    """Get audit log statistics."""
+    try:
+        stats = audit.get_audit_statistics()
+        return jsonify({
+            'success': True,
+            'statistics': stats
+        })
+    except Exception as e:
+        logger.error(f"Error fetching audit statistics: {e}")
+        return error_response(e)
+
+@app.route('/dashboard')
+@require_oauth
+def get_dashboard_data():
+    """Get dashboard data including statistics and system health."""
+    ensure_sf_conn()
+    try:
+        # Get user statistics
+        users = sfc.client.list_users_with_keys_optimized()
+        total_users = len(users)
+        active_users = sum(1 for u in users if not u.get('disabled') and not u.get('snowflake_lock'))
+        locked_users = sum(1 for u in users if u.get('snowflake_lock'))
+        users_with_keys = sum(1 for u in users if u.get('has_rsa_public_key'))
+        
+        # Get role statistics
+        roles = sfc.client.list_roles_detailed()
+        total_roles = len(roles)
+        system_roles = sum(1 for r in roles if r.get('type') == 'SYSTEM' or r.get('name') in ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'])
+        custom_roles = total_roles - system_roles
+        
+        # Get audit statistics
+        audit_stats = audit.get_audit_statistics()
+        
+        # System health
+        connection_status = 'connected' if sfc.client._conn else 'disconnected'
+        last_sync = datetime.datetime.now().isoformat()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'users': {
+                    'total': total_users,
+                    'active': active_users,
+                    'locked': locked_users,
+                    'with_keys': users_with_keys,
+                    'without_keys': total_users - users_with_keys
+                },
+                'roles': {
+                    'total': total_roles,
+                    'system': system_roles,
+                    'custom': custom_roles
+                },
+                'audit': audit_stats,
+                'system_health': {
+                    'connection_status': connection_status,
+                    'last_sync': last_sync
+                }
+            }
+        })
+    except Exception as e:
+        return error_response(e)
 
 @app.route('/keys/generate-and-rotate', methods=['POST'])
 @require_oauth
@@ -967,6 +1526,14 @@ def generate_and_rotate_key():
         print(f"Error in generate_and_rotate_key: {str(e)}")
         return error_response(e)
 
+# Helper to get current user identity for audit logging
+def get_audit_identity():
+    """Get current user identity for audit logging."""
+    ident = oauth.current_identity()
+    if ident:
+        return ident.get('user', 'unknown'), ident.get('role', 'unknown')
+    return 'unknown', 'unknown'
+
 # helper to ensure connection
 def ensure_sf_conn():
     # Skip connection during unit tests
@@ -997,8 +1564,19 @@ def error_response(exc: Exception, status: int = 500):
 # -------------------------------------------------------------------------
 
 def kill_port_processes(port):
-    """Kill all processes using the specified port."""
+    """Kill all processes using the specified port, excluding current and parent processes."""
     try:
+        # Skip if we're in the Flask reloader child process
+        # WERKZEUG_RUN_MAIN is set to 'true' in the reloader child process
+        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+            # We're in the reloader, don't kill anything
+            return
+        
+        # Get current process and parent process IDs to exclude
+        current_pid = str(os.getpid())
+        parent_pid = str(os.getppid())
+        exclude_pids = {current_pid, parent_pid}
+        
         # Use lsof to find processes using the port and kill them
         result = subprocess.run(
             ['lsof', '-ti', f':{port}'],
@@ -1008,13 +1586,17 @@ def kill_port_processes(port):
         )
         if result.stdout.strip():
             pids = result.stdout.strip().split('\n')
+            killed_any = False
             for pid in pids:
-                if pid:
+                if pid and pid not in exclude_pids:
                     try:
                         subprocess.run(['kill', '-9', pid], check=False)
                         logger.info(f'Killed process {pid} using port {port}')
+                        killed_any = True
                     except Exception as e:
                         logger.warning(f'Failed to kill process {pid}: {e}')
+            if not killed_any:
+                logger.info(f'No external processes found using port {port} (current processes excluded)')
         else:
             logger.info(f'No processes found using port {port}')
     except FileNotFoundError:
@@ -1024,10 +1606,12 @@ def kill_port_processes(port):
         logger.warning(f'Error checking/killing processes on port {port}: {e}')
 
 if __name__ == '__main__':
-    # Kill any existing processes on port 5001
+    # Kill any existing processes on port 5001 (only on initial startup, not on reload)
     kill_port_processes(5001)
     
-    # Open browser after a short delay
-    Timer(1.5, open_browser).start()
+    # Open browser after a short delay (only in main process, not reloader)
+    if not os.environ.get('WERKZEUG_RUN_MAIN'):
+        Timer(1.5, open_browser).start()
+    
     # Run on port 5001 to match OAuth redirect URI
     app.run(host='127.0.0.1', port=5001, debug=True) 

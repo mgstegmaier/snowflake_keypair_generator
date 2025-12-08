@@ -493,6 +493,11 @@
                             <i class="bi bi-journal-text me-2"></i>Server Logs
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="audit-tab" data-bs-toggle="tab" href="#audit" role="tab">
+                            <i class="bi bi-shield-check me-2"></i>Audit Log
+                        </a>
+                    </li>
                 </ul>
             </nav>
             <div class="content p-4 position-relative">
@@ -656,6 +661,15 @@
                                         Auto-refresh
                                     </label>
                                 </div>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-brand btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-download"></i> Export
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" id="exportUsersCSV"><i class="bi bi-filetype-csv"></i> Export as CSV</a></li>
+                                        <li><a class="dropdown-item" href="#" id="exportUsersJSON"><i class="bi bi-filetype-json"></i> Export as JSON</a></li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
 
@@ -728,10 +742,19 @@
                                     <option value="inherited">Inherited Roles</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-3 d-flex align-items-center gap-2">
                                 <button class="btn btn-brand" id="refreshRoles">
                                     <i class="bi bi-arrow-clockwise"></i> Refresh
                                 </button>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-brand btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-download"></i> Export
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" id="exportRolesCSV"><i class="bi bi-filetype-csv"></i> Export as CSV</a></li>
+                                        <li><a class="dropdown-item" href="#" id="exportRolesJSON"><i class="bi bi-filetype-json"></i> Export as JSON</a></li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
 
@@ -883,6 +906,15 @@
                                         Auto-refresh
                                     </label>
                                 </div>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-brand btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-download"></i> Export
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" id="exportLogsTXT"><i class="bi bi-filetype-txt"></i> Export as Text</a></li>
+                                        <li><a class="dropdown-item" href="#" id="exportLogsJSON"><i class="bi bi-filetype-json"></i> Export as JSON</a></li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         
@@ -926,6 +958,139 @@
                                 </div>
                                 <div class="card-body">
                                     <pre class="text-light" id="logDetailsContent"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="audit" role="tabpanel" aria-labelledby="audit-tab">
+                        <h3 class="mb-4">Audit Log</h3>
+                        
+                        <!-- Search and Filter Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label for="auditActionFilter" class="form-label">Action Type</label>
+                                <select class="form-select" id="auditActionFilter">
+                                    <option value="">All Actions</option>
+                                    <option value="user_unlock">User Unlock</option>
+                                    <option value="password_reset">Password Reset</option>
+                                    <option value="password_unset">Password Unset</option>
+                                    <option value="permission_grant">Permission Grant</option>
+                                    <option value="permission_revoke">Permission Revoke</option>
+                                    <option value="key_set">Key Set</option>
+                                    <option value="key_unset">Key Unset</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="auditUserFilter" class="form-label">User</label>
+                                <input type="text" class="form-control" id="auditUserFilter" placeholder="Filter by user...">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="auditStartDate" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="auditStartDate">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="auditEndDate" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="auditEndDate">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end gap-2">
+                                <button class="btn btn-brand" id="refreshAudit">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Audit Log Table -->
+                        <div class="table-responsive">
+                            <table class="table table-app-bg table-striped-app text-light table-hover" id="auditTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Action</th>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        <th>Target</th>
+                                        <th>Status</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="auditTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="dashboard" role="tabpanel" aria-labelledby="dashboard-tab">
+                        <h3 class="mb-4">Dashboard</h3>
+                        
+                        <!-- Statistics Cards -->
+                        <div class="row mb-4" id="dashboardStats">
+                            <div class="col-md-3">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-muted">Total Users</h5>
+                                        <h2 class="text-light" id="statTotalUsers">-</h2>
+                                        <small class="text-muted">Active: <span id="statActiveUsers">-</span> | Locked: <span id="statLockedUsers">-</span></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-muted">Users with Keys</h5>
+                                        <h2 class="text-light" id="statUsersWithKeys">-</h2>
+                                        <small class="text-muted">Without keys: <span id="statUsersWithoutKeys">-</span></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-muted">Total Roles</h5>
+                                        <h2 class="text-light" id="statTotalRoles">-</h2>
+                                        <small class="text-muted">System: <span id="statSystemRoles">-</span> | Custom: <span id="statCustomRoles">-</span></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-muted">Recent Actions</h5>
+                                        <h2 class="text-light" id="statRecentActions">-</h2>
+                                        <small class="text-muted">Success rate: <span id="statSuccessRate">-</span>%</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Health -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">System Health</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Connection Status:</strong> <span id="healthConnectionStatus" class="badge bg-success">Connected</span></p>
+                                        <p><strong>Last Sync:</strong> <span id="healthLastSync">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Recent Administrative Actions</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="recentActionsList">
+                                            <div class="text-center text-muted">Loading...</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2105,6 +2270,16 @@
             document.getElementById('userAuthFilter').addEventListener('change', applyUserFilters);
             document.getElementById('refreshUsers').addEventListener('click', loadUsers);
             
+            // Export functionality for users
+            document.getElementById('exportUsersCSV').addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = '/export/users?format=csv';
+            });
+            document.getElementById('exportUsersJSON').addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = '/export/users?format=json';
+            });
+            
             // Auto-refresh functionality for users tab
             function setupUsersAutoRefresh() {
                 const autoRefreshCheckbox = document.getElementById('usersAutoRefresh');
@@ -2583,6 +2758,66 @@
             const rolesPrevPage = document.getElementById('rolesPrevPage');
             const rolesNextPage = document.getElementById('rolesNextPage');
 
+            // Define sortRolesTable function early so it's available when loadRolesData calls it
+            window.sortRolesTable = function(field) {
+                if (rolesSortField === field) {
+                    rolesSortDirection = rolesSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    rolesSortField = field;
+                    rolesSortDirection = 'asc';
+                }
+
+                // Update sort icons
+                document.querySelectorAll('[id^="sort-roles-"]').forEach(icon => {
+                    icon.className = 'bi bi-arrow-down-up';
+                });
+                const currentIcon = document.getElementById(`sort-roles-${field}`);
+                if (currentIcon) {
+                    currentIcon.className = rolesSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
+                }
+
+                // Sort rolesData array
+                rolesData.sort((a, b) => {
+                    let aVal, bVal;
+                    switch (field) {
+                        case 'name':
+                            aVal = a.name || '';
+                            bVal = b.name || '';
+                            break;
+                        case 'type':
+                            aVal = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(a.name) ? 'System' : 'Custom';
+                            bVal = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(b.name) ? 'System' : 'Custom';
+                            break;
+                        case 'assigned_to_users':
+                            aVal = parseInt(a.assigned_to_users) || 0;
+                            bVal = parseInt(b.assigned_to_users) || 0;
+                            break;
+                        case 'granted_roles':
+                            aVal = parseInt(a.granted_roles) || 0;
+                            bVal = parseInt(b.granted_roles) || 0;
+                            break;
+                        case 'owner':
+                            aVal = a.owner || '';
+                            bVal = b.owner || '';
+                            break;
+                        case 'created_on':
+                            aVal = new Date(a.created_on || 0);
+                            bVal = new Date(b.created_on || 0);
+                            break;
+                        default:
+                            return 0;
+                    }
+
+                    if (aVal < bVal) return rolesSortDirection === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return rolesSortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                // Reset to first page and re-filter
+                currentRolesPage = 1;
+                applyRolesFilters();
+            };
+
             async function loadRolesData() {
                 try {
                     rolesTableBody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="spinner-border text-primary" role="status"></div></td></tr>';
@@ -2940,6 +3175,16 @@
             roleSearch.addEventListener('input', applyRolesFilters);
             roleTypeFilter.addEventListener('change', applyRolesFilters);
             refreshRolesBtn.addEventListener('click', loadRolesData);
+            
+            // Export functionality for roles
+            document.getElementById('exportRolesCSV').addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = '/export/roles?format=csv';
+            });
+            document.getElementById('exportRolesJSON').addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = '/export/roles?format=json';
+            });
 
             rolesPrevPage.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -3637,6 +3882,28 @@
             
             // Event listeners for logs tab
             document.getElementById('refreshLogsBtn').addEventListener('click', loadLogs);
+            
+            // Export functionality for logs
+            document.getElementById('exportLogsTXT').addEventListener('click', function(e) {
+                e.preventDefault();
+                const levelFilter = document.getElementById('logLevelFilter').value;
+                const searchTerm = document.getElementById('logSearch').value;
+                const lines = document.getElementById('logLines').value;
+                let url = `/export/logs?format=txt&lines=${lines}`;
+                if (levelFilter) url += `&level=${encodeURIComponent(levelFilter)}`;
+                if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
+                window.location.href = url;
+            });
+            document.getElementById('exportLogsJSON').addEventListener('click', function(e) {
+                e.preventDefault();
+                const levelFilter = document.getElementById('logLevelFilter').value;
+                const searchTerm = document.getElementById('logSearch').value;
+                const lines = document.getElementById('logLines').value;
+                let url = `/export/logs?format=json&lines=${lines}`;
+                if (levelFilter) url += `&level=${encodeURIComponent(levelFilter)}`;
+                if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
+                window.location.href = url;
+            });
             document.getElementById('autoRefresh').addEventListener('change', setupLogsAutoRefresh);
             document.getElementById('logLevelFilter').addEventListener('change', loadLogs);
             document.getElementById('logLines').addEventListener('change', loadLogs);
@@ -3686,66 +3953,121 @@
                 };
             }
 
-            // Sorting functions for Roles table (declared in roles section)
-
-            window.sortRolesTable = function(field) {
-                if (rolesSortField === field) {
-                    rolesSortDirection = rolesSortDirection === 'asc' ? 'desc' : 'asc';
-                } else {
-                    rolesSortField = field;
-                    rolesSortDirection = 'asc';
-                }
-
-                // Update sort icons
-                document.querySelectorAll('[id^="sort-roles-"]').forEach(icon => {
-                    icon.className = 'bi bi-arrow-down-up';
-                });
-                const currentIcon = document.getElementById(`sort-roles-${field}`);
-                if (currentIcon) {
-                    currentIcon.className = rolesSortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
-                }
-
-                // Sort rolesData array
-                rolesData.sort((a, b) => {
-                    let aVal, bVal;
-                    switch (field) {
-                        case 'name':
-                            aVal = a.name || '';
-                            bVal = b.name || '';
-                            break;
-                        case 'type':
-                            aVal = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(a.name) ? 'System' : 'Custom';
-                            bVal = ['ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'PUBLIC', 'USERADMIN', 'ORGADMIN'].includes(b.name) ? 'System' : 'Custom';
-                            break;
-                        case 'assigned_to_users':
-                            aVal = parseInt(a.assigned_to_users) || 0;
-                            bVal = parseInt(b.assigned_to_users) || 0;
-                            break;
-                        case 'granted_roles':
-                            aVal = parseInt(a.granted_roles) || 0;
-                            bVal = parseInt(b.granted_roles) || 0;
-                            break;
-                        case 'owner':
-                            aVal = a.owner || '';
-                            bVal = b.owner || '';
-                            break;
-                        case 'created_on':
-                            aVal = new Date(a.created_on || 0);
-                            bVal = new Date(b.created_on || 0);
-                            break;
-                        default:
-                            return 0;
+            // Audit Log Tab Functionality
+            async function loadAuditLogs() {
+                const tableBody = document.getElementById('auditTableBody');
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>';
+                
+                try {
+                    const actionFilter = document.getElementById('auditActionFilter').value;
+                    const userFilter = document.getElementById('auditUserFilter').value;
+                    const startDate = document.getElementById('auditStartDate').value;
+                    const endDate = document.getElementById('auditEndDate').value;
+                    
+                    let url = '/audit/logs?max_entries=500';
+                    if (actionFilter) url += `&action=${encodeURIComponent(actionFilter)}`;
+                    if (userFilter) url += `&user=${encodeURIComponent(userFilter)}`;
+                    if (startDate) url += `&start_date=${encodeURIComponent(startDate)}`;
+                    if (endDate) url += `&end_date=${encodeURIComponent(endDate)}`;
+                    
+                    const response = await fetchWithAuth(url);
+                    const entries = response.entries || [];
+                    
+                    if (entries.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No audit log entries found</td></tr>';
+                        return;
                     }
+                    
+                    let html = '';
+                    entries.forEach(entry => {
+                        const timestamp = new Date(entry.timestamp).toLocaleString();
+                        const statusBadge = entry.success 
+                            ? '<span class="badge bg-success">Success</span>'
+                            : '<span class="badge bg-danger">Failed</span>';
+                        const details = entry.details ? JSON.stringify(entry.details).substring(0, 50) + '...' : '';
+                        const target = entry.target_id || entry.target_type || '-';
+                        
+                        html += `
+                            <tr>
+                                <td>${timestamp}</td>
+                                <td><code>${entry.action || '-'}</code></td>
+                                <td>${entry.user || '-'}</td>
+                                <td>${entry.role || '-'}</td>
+                                <td>${target}</td>
+                                <td>${statusBadge}</td>
+                                <td><small class="text-muted">${details}</small></td>
+                            </tr>
+                        `;
+                    });
+                    tableBody.innerHTML = html;
+                } catch (error) {
+                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading audit logs: ${error.message}</td></tr>`;
+                }
+            }
+            
+            // Event listeners for audit tab
+            document.getElementById('refreshAudit').addEventListener('click', loadAuditLogs);
+            document.getElementById('auditActionFilter').addEventListener('change', loadAuditLogs);
+            document.getElementById('auditUserFilter').addEventListener('input', debounce(loadAuditLogs, 500));
+            document.getElementById('auditStartDate').addEventListener('change', loadAuditLogs);
+            document.getElementById('auditEndDate').addEventListener('change', loadAuditLogs);
+            
+            // Load audit logs when audit tab is shown
+            document.getElementById('audit-tab').addEventListener('shown.bs.tab', function() {
+                loadAuditLogs();
+            });
 
-                    if (aVal < bVal) return rolesSortDirection === 'asc' ? -1 : 1;
-                    if (aVal > bVal) return rolesSortDirection === 'asc' ? 1 : -1;
-                    return 0;
-                });
+            // Dashboard Tab Functionality
+            async function loadDashboard() {
+                try {
+                    const response = await fetchWithAuth('/dashboard');
+                    const data = response.data;
+                    
+                    // Update statistics
+                    document.getElementById('statTotalUsers').textContent = data.users.total || 0;
+                    document.getElementById('statActiveUsers').textContent = data.users.active || 0;
+                    document.getElementById('statLockedUsers').textContent = data.users.locked || 0;
+                    document.getElementById('statUsersWithKeys').textContent = data.users.with_keys || 0;
+                    document.getElementById('statUsersWithoutKeys').textContent = data.users.without_keys || 0;
+                    document.getElementById('statTotalRoles').textContent = data.roles.total || 0;
+                    document.getElementById('statSystemRoles').textContent = data.roles.system || 0;
+                    document.getElementById('statCustomRoles').textContent = data.roles.custom || 0;
+                    document.getElementById('statRecentActions').textContent = data.audit.total_actions || 0;
+                    document.getElementById('statSuccessRate').textContent = data.audit.success_rate ? data.audit.success_rate.toFixed(1) : '0';
+                    
+                    // Update system health
+                    const connectionStatus = data.system_health.connection_status;
+                    const statusBadge = document.getElementById('healthConnectionStatus');
+                    statusBadge.textContent = connectionStatus.charAt(0).toUpperCase() + connectionStatus.slice(1);
+                    statusBadge.className = connectionStatus === 'connected' ? 'badge bg-success' : 'badge bg-danger';
+                    document.getElementById('healthLastSync').textContent = new Date(data.system_health.last_sync).toLocaleString();
+                    
+                    // Update recent actions
+                    const recentActions = data.audit.recent_actions || [];
+                    const actionsList = document.getElementById('recentActionsList');
+                    if (recentActions.length === 0) {
+                        actionsList.innerHTML = '<div class="text-muted">No recent actions</div>';
+                    } else {
+                        let html = '<ul class="list-unstyled mb-0">';
+                        recentActions.slice(0, 5).forEach(action => {
+                            const timestamp = new Date(action.timestamp).toLocaleString();
+                            const statusIcon = action.success ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>';
+                            html += `<li class="mb-2">${statusIcon} <strong>${action.action}</strong> by ${action.user} at ${timestamp}</li>`;
+                        });
+                        html += '</ul>';
+                        actionsList.innerHTML = html;
+                    }
+                } catch (error) {
+                    console.error('Error loading dashboard:', error);
+                }
+            }
+            
+            // Load dashboard when dashboard tab is shown
+            document.getElementById('dashboard-tab').addEventListener('shown.bs.tab', function() {
+                loadDashboard();
+            });
 
-                // Reset to first page and re-filter
-                currentRolesPage = 1;
-                applyRolesFilters();
-            };
+            // Sorting functions for Roles table (already defined earlier, this is just a comment)
         });
     </script>
 </body>
